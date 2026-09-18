@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Jeu d'evaluation de momo_list_operators.
+
+  Chaque reponse est extraite de la sortie reelle de l'outil, verifiee par un
+  client MCP stdio avant d'etre ecrite ici. Aucune reponse n'est deduite d'une
+  source externe : si le catalogue ne la contient pas, la question n'y est pas.
+
+  Toutes les questions sont en lecture seule et independantes les unes des
+  autres. Aucune ne declenche de paiement.
+
+  A refaire tourner apres toute modification de operators.py.
+-->
+<evaluation>
+
+  <qa_pair>
+    <question>I am about to charge a customer 1500 francs CFA. How many decimal places does the XOF currency use for a payment amount?</question>
+    <answer>0</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Which countries can this server take mobile money payments in? List their names.</question>
+    <answer>Benin, Burkina Faso, Cote d'Ivoire, Guinea-Bissau, Mali, Niger, Senegal, Togo</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>What shape should a Burkina Faso phone number have in E.164 form before I send it in a payment request?</question>
+    <answer>+226XXXXXXXX</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>How many digits does a national mobile number have in Cote d'Ivoire?</question>
+    <answer>10</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>A customer in Cote d'Ivoire gives me a number starting with 07. Which telecom network does that prefix belong to?</question>
+    <answer>Orange Cote d'Ivoire</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>In Burkina Faso, which telecom network holds the number prefix 66?</question>
+    <answer>Airtel Burkina Faso</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Which mobile money services can I collect a payment with in Niger?</question>
+    <answer>Airtel Money and Moov Money</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Which payment service available in Senegal is an independent wallet rather than one tied to a mobile network?</question>
+    <answer>Wave</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Every mobile number in Benin now starts with 01. Which operator does that leading 01 identify?</question>
+    <answer>None</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>What is the service identifier for Moov Money in Togo?</question>
+    <answer>moov_money_tg</answer>
+  </qa_pair>
+
+</evaluation>
