@@ -23,6 +23,31 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
   à écrire avant `momo_initiate_payment`, en s'appuyant sur les longueurs
   nationales déjà présentes dans `operators.py`.
 
+## Dette technique — à traiter avant `momo_initiate_payment`
+
+- **Migration SDK 2.x.** Le code cible `FastMCP`, l'API v1 du SDK. Le SDK 2.x
+  renomme `FastMCP` en `MCPServer`. Guide de migration :
+  <https://py.sdk.modelcontextprotocol.io/v2/migration/#fastmcp-renamed-to-mcpserver>
+  À faire tant qu'il n'y a qu'un seul outil à convertir.
+  Attention : `pyproject.toml` déclare `mcp>=1.6.0`, **sans borne haute**. Il n'y
+  a donc aucun garde-fou contre une 2.x : une installation neuve peut tirer le
+  SDK 2.x et casser l'import. Poser `mcp>=1.6.0,<2` en attendant la migration,
+  ou migrer tout de suite. (Version installée au moment de la note : 1.30.0.)
+
+- **MCP Inspector en échec.** Timeout de 30 s au handshake, alors que le serveur
+  répond correctement en JSON-RPC direct sur stdin. Cause probable : l'espace
+  dans le chemin `C:\dev\Projet MCP`. À revérifier une fois le projet déplacé
+  dans un dossier `momo-xof-mcp`. Sans gravité : les tests passent en ligne de
+  commande.
+
+- **`extra='forbid'` perdu.** Avec les paramètres à plat, le schéma généré par
+  FastMCP ne porte pas `additionalProperties: false` : un argument inconnu est
+  ignoré en silence. Vérifié — `{"pays": "BF"}` renvoie le catalogue complet
+  avec `isError=False`, au lieu d'échouer. Sans conséquence sur un outil en
+  lecture seule, mais bloquant pour `momo_initiate_payment`, où un champ mal
+  orthographié doit échouer bruyamment et non retomber sur une valeur par
+  défaut.
+
 ## Questions ouvertes
 
 - Quel agrégateur en défaut : CinetPay ou PayDunya ?
