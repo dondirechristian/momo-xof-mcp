@@ -2,7 +2,7 @@
 
 **MCP server for West African mobile money (XOF zone).**
 Give your AI agent the ability to initiate and track mobile money payments
-across Orange Money, Moov Money and Wave in the eight UEMOA countries.
+across the major mobile money operators in the eight UEMOA countries.
 
 > Status: v0.1 in development. Sandbox only. Do not use against production
 > credentials yet.
@@ -79,7 +79,7 @@ MIT. Built by [SOTECHDI](https://sotechdi.bf), Ouagadougou, Burkina Faso.
 
 ## Français
 
-Serveur MCP pour le mobile money en zone franc CFA (XOF) : Orange Money, Moov
-Money et Wave dans les huit pays de l'UEMOA. Trois outils — lister les
+Serveur MCP pour le mobile money en zone franc CFA (XOF) : les principaux
+opérateurs des huit pays de l'UEMOA. Trois outils — lister les
 opérateurs, initier un paiement, consulter un statut. Version 0.1 en sandbox
 uniquement. Documentation complète en anglais ci-dessus.

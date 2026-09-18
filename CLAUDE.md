@@ -56,8 +56,13 @@ d'outil « utilitaire » ou « helper » exposé. Si tu penses qu'un outil manqu
 ## Conventions de code
 
 - Noms d'outils en `snake_case`, toujours préfixés `momo_`.
-- Un modèle Pydantic par outil, `extra='forbid'`, descriptions de champs
-  explicites avec exemples.
+- **Paramètres d'outil à plat** dans la signature de la fonction, un argument
+  par champ, typés en `Annotated[T, Field(description=..., examples=[...])]`.
+  Ne jamais passer un modèle Pydantic comme paramètre unique : FastMCP en fait
+  un objet imbriqué et l'appelant doit alors envelopper ses arguments dans
+  `{"params": {...}}`. Les modèles Pydantic servent à la validation interne et
+  aux structures de sortie, pas de porte d'entrée.
+- Description explicite et exemple sur chaque champ, portés par `Field`.
 - Annotations MCP renseignées sur chaque outil : `title`, `readOnlyHint`,
   `destructiveHint`, `idempotentHint`, `openWorldHint`.
 - Retour des outils : JSON sérialisé en `str`.
