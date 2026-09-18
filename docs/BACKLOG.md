@@ -29,10 +29,11 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
   renomme `FastMCP` en `MCPServer`. Guide de migration :
   <https://py.sdk.modelcontextprotocol.io/v2/migration/#fastmcp-renamed-to-mcpserver>
   À faire tant qu'il n'y a qu'un seul outil à convertir.
-  Attention : `pyproject.toml` déclare `mcp>=1.6.0`, **sans borne haute**. Il n'y
-  a donc aucun garde-fou contre une 2.x : une installation neuve peut tirer le
-  SDK 2.x et casser l'import. Poser `mcp>=1.6.0,<2` en attendant la migration,
-  ou migrer tout de suite. (Version installée au moment de la note : 1.30.0.)
+  La borne haute est posée : `pyproject.toml` déclare `mcp>=1.6.0,<2`, donc une
+  installation neuve ne peut plus tirer le SDK 2.x et casser l'import. Ce n'est
+  qu'un garde-fou — il gèle le projet sur la v1 et la migration reste entière.
+  Lever la borne dans le même commit que la migration, jamais avant.
+  (Version installée au moment de la note : 1.30.0.)
 
 - **MCP Inspector en échec.** Timeout de 30 s au handshake, alors que le serveur
   répond correctement en JSON-RPC direct sur stdin. Cause probable : l'espace
