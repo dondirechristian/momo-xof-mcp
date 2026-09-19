@@ -63,6 +63,10 @@ d'outil « utilitaire » ou « helper » exposé. Si tu penses qu'un outil manqu
   `{"params": {...}}`. Les modèles Pydantic servent à la validation interne et
   aux structures de sortie, pas de porte d'entrée.
 - Description explicite et exemple sur chaque champ, portés par `Field`.
+- **Les arguments inconnus sont refusés**, pas ignorés. `_StrictArgsFastMCP`
+  dans `server.py` s'en charge pour tous les outils : ne pas réintroduire de
+  tolérance, et ne pas contourner en lisant un `**kwargs`. Un champ mal
+  orthographié sur une demande de paiement doit échouer bruyamment.
 - Annotations MCP renseignées sur chaque outil : `title`, `readOnlyHint`,
   `destructiveHint`, `idempotentHint`, `openWorldHint`.
 - Retour des outils : JSON sérialisé en `str`.

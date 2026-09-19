@@ -12,15 +12,60 @@ protocole MCP. Pas de `print`, pas de logging vers stdout.
 from __future__ import annotations
 
 import json
-from typing import Annotated
+from collections.abc import Sequence
+from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ContentBlock
+from mcp.types import Tool as MCPTool
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from .operators import SUPPORTED_COUNTRY_CODES, build_catalogue, find_country
 
-mcp = FastMCP("momo_xof_mcp")
+
+class _StrictArgsFastMCP(FastMCP):
+    """FastMCP qui refuse un argument inconnu au lieu de l'ignorer.
+
+    Les paramètres d'outil sont déclarés à plat (voir CLAUDE.md). Le modèle
+    d'arguments que FastMCP génère hérite d'`ArgModelBase`, dont la config
+    Pydantic laisse `extra` à « ignore » : un argument mal orthographié est
+    accepté sans bruit et l'outil retombe sur sa valeur par défaut.
+
+    Tolérable sur un outil en lecture seule. Inacceptable sur un outil qui
+    déplace de l'argent : `montant` au lieu d'`amount`, ou une référence
+    d'idempotence mal nommée, doit échouer bruyamment. On refuse donc en
+    amont, pour tous les outils du serveur, présents et à venir.
+    """
+
+    async def list_tools(self) -> list[MCPTool]:
+        """Annonce aux clients que les champs inconnus sont refusés."""
+        tools = await super().list_tools()
+        for tool in tools:
+            if tool.inputSchema.get("type") == "object":
+                tool.inputSchema.setdefault("additionalProperties", False)
+        return tools
+
+    async def call_tool(
+        self, name: str, arguments: dict[str, Any]
+    ) -> Sequence[ContentBlock] | dict[str, Any]:
+        """Rejette les arguments inconnus avant toute exécution."""
+        tool = self._tool_manager.get_tool(name)
+        if tool is not None:
+            accepted = set(tool.parameters.get("properties", {}))
+            unknown = sorted(set(arguments) - accepted)
+            if unknown:
+                raise ValueError(
+                    f"Unknown argument(s) for tool {name}: {', '.join(unknown)}. "
+                    f"Accepted argument(s): {', '.join(sorted(accepted)) or 'none'}. "
+                    "Check the spelling: arguments are never ignored silently, so "
+                    "that a mistyped field on a payment request fails loudly "
+                    "instead of falling back to a default."
+                )
+        return await super().call_tool(name, arguments)
+
+
+mcp = _StrictArgsFastMCP("momo_xof_mcp")
 
 
 @mcp.tool(

@@ -41,13 +41,13 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
   dans un dossier `momo-xof-mcp`. Sans gravité : les tests passent en ligne de
   commande.
 
-- **`extra='forbid'` perdu.** Avec les paramètres à plat, le schéma généré par
-  FastMCP ne porte pas `additionalProperties: false` : un argument inconnu est
-  ignoré en silence. Vérifié — `{"pays": "BF"}` renvoie le catalogue complet
-  avec `isError=False`, au lieu d'échouer. Sans conséquence sur un outil en
-  lecture seule, mais bloquant pour `momo_initiate_payment`, où un champ mal
-  orthographié doit échouer bruyamment et non retomber sur une valeur par
-  défaut.
+- ~~**`extra='forbid'` perdu.**~~ **Réglé le 2026-09-19.** Le modèle
+  d'arguments généré par FastMCP hérite d'`ArgModelBase`, dont la config
+  Pydantic laisse `extra` à « ignore » : `{"pays": "BF"}` renvoyait le
+  catalogue complet avec `isError=False`. `_StrictArgsFastMCP` dans
+  `server.py` refuse désormais tout argument inconnu avant exécution, et
+  annonce `additionalProperties: false` dans le schéma publié. Vaut pour tous
+  les outils, y compris ceux à venir.
 
 ## Questions ouvertes
 
