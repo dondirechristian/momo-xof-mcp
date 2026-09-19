@@ -16,9 +16,8 @@ from collections.abc import Sequence
 from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
-from mcp.types import ContentBlock
+from mcp.types import ContentBlock, ToolAnnotations
 from mcp.types import Tool as MCPTool
-from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from .operators import SUPPORTED_COUNTRY_CODES, build_catalogue, find_country
