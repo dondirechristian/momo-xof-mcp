@@ -12,22 +12,22 @@ protocole MCP. Pas de `print`, pas de logging vers stdout.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
 from typing import Annotated, Any
 
-from mcp.server.fastmcp import FastMCP
-from mcp.types import ContentBlock, ToolAnnotations
+from mcp.server.mcpserver import Context, MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import CallToolResult, InputRequiredResult, ToolAnnotations
 from mcp.types import Tool as MCPTool
 from pydantic import Field
 
 from .operators import SUPPORTED_COUNTRY_CODES, build_catalogue, find_country
 
 
-class _StrictArgsFastMCP(FastMCP):
-    """FastMCP qui refuse un argument inconnu au lieu de l'ignorer.
+class _StrictArgsMCPServer(MCPServer):
+    """MCPServer qui refuse un argument inconnu au lieu de l'ignorer.
 
     Les paramètres d'outil sont déclarés à plat (voir CLAUDE.md). Le modèle
-    d'arguments que FastMCP génère hérite d'`ArgModelBase`, dont la config
+    d'arguments que le SDK génère hérite d'`ArgModelBase`, dont la config
     Pydantic laisse `extra` à « ignore » : un argument mal orthographié est
     accepté sans bruit et l'outil retombe sur sa valeur par défaut.
 
@@ -41,30 +41,33 @@ class _StrictArgsFastMCP(FastMCP):
         """Annonce aux clients que les champs inconnus sont refusés."""
         tools = await super().list_tools()
         for tool in tools:
-            if tool.inputSchema.get("type") == "object":
-                tool.inputSchema.setdefault("additionalProperties", False)
+            if tool.input_schema.get("type") == "object":
+                tool.input_schema.setdefault("additionalProperties", False)
         return tools
 
     async def call_tool(
-        self, name: str, arguments: dict[str, Any]
-    ) -> Sequence[ContentBlock] | dict[str, Any]:
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        context: Context[Any, Any] | None = None,
+    ) -> CallToolResult | InputRequiredResult:
         """Rejette les arguments inconnus avant toute exécution."""
         tool = self._tool_manager.get_tool(name)
         if tool is not None:
             accepted = set(tool.parameters.get("properties", {}))
             unknown = sorted(set(arguments) - accepted)
             if unknown:
-                raise ValueError(
+                raise ToolError(
                     f"Unknown argument(s) for tool {name}: {', '.join(unknown)}. "
                     f"Accepted argument(s): {', '.join(sorted(accepted)) or 'none'}. "
                     "Check the spelling: arguments are never ignored silently, so "
                     "that a mistyped field on a payment request fails loudly "
                     "instead of falling back to a default."
                 )
-        return await super().call_tool(name, arguments)
+        return await super().call_tool(name, arguments, context)
 
 
-mcp = _StrictArgsFastMCP("momo_xof_mcp")
+mcp = _StrictArgsMCPServer("momo_xof_mcp")
 
 
 @mcp.tool(
@@ -111,7 +114,11 @@ async def momo_list_operators(
     if country is not None:
         candidate = country.strip()
         if find_country(candidate) is None:
-            raise ValueError(
+            # ToolError, pas ValueError : en 2.x une exception quelconque est
+            # traitée comme un crash et le message est retiré de la réponse.
+            # Le modèle ne verrait que « Error executing tool ». Or tout
+            # l'intérêt de ce message est d'être lu et corrigé par l'appelant.
+            raise ToolError(
                 f"Unknown country code {candidate!r}. Expected an ISO 3166-1 "
                 f"alpha-2 code among {', '.join(SUPPORTED_COUNTRY_CODES)}, or "
                 "omit the 'country' argument to list every UEMOA country."

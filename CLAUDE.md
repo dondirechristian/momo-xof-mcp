@@ -14,7 +14,7 @@ Mainteneur : SOTECHDI (Ouagadougou, Burkina Faso).
 ## Stack imposée — ne pas proposer d'alternative
 
 - Python 3.11+
-- `mcp` (SDK officiel) avec `FastMCP`
+- `mcp` (SDK officiel) 2.x, avec `MCPServer` (ex-`FastMCP`, renommé en 2.0)
 - `pydantic` v2 pour la validation des entrées
 - `httpx` en asynchrone pour les appels HTTP
 - `python-dotenv` pour la configuration
@@ -58,12 +58,12 @@ d'outil « utilitaire » ou « helper » exposé. Si tu penses qu'un outil manqu
 - Noms d'outils en `snake_case`, toujours préfixés `momo_`.
 - **Paramètres d'outil à plat** dans la signature de la fonction, un argument
   par champ, typés en `Annotated[T, Field(description=..., examples=[...])]`.
-  Ne jamais passer un modèle Pydantic comme paramètre unique : FastMCP en fait
+  Ne jamais passer un modèle Pydantic comme paramètre unique : le SDK en fait
   un objet imbriqué et l'appelant doit alors envelopper ses arguments dans
   `{"params": {...}}`. Les modèles Pydantic servent à la validation interne et
   aux structures de sortie, pas de porte d'entrée.
 - Description explicite et exemple sur chaque champ, portés par `Field`.
-- **Les arguments inconnus sont refusés**, pas ignorés. `_StrictArgsFastMCP`
+- **Les arguments inconnus sont refusés**, pas ignorés. `_StrictArgsMCPServer`
   dans `server.py` s'en charge pour tous les outils : ne pas réintroduire de
   tolérance, et ne pas contourner en lisant un `**kwargs`. Un champ mal
   orthographié sur une demande de paiement doit échouer bruyamment.
@@ -73,6 +73,12 @@ d'outil « utilitaire » ou « helper » exposé. Si tu penses qu'un outil manqu
 - Messages d'erreur **actionnables** : dire ce qui a échoué et quoi faire
   ensuite. `"Numéro invalide"` est insuffisant ; `"Numéro invalide : attendu au
   format E.164 (+226XXXXXXXX) pour le Burkina Faso"` convient.
+- **Lever `ToolError`**, jamais `ValueError`, pour une erreur destinée à
+  l'appelant. Depuis le SDK 2.x, une exception quelconque est traitée comme un
+  crash : le modèle ne reçoit que « Error executing tool <nom> » et le message
+  est retiré de la réponse. Un message actionnable levé en `ValueError` est
+  donc un message perdu. (Seule exception : à l'intérieur d'un validateur
+  Pydantic, lever `ValueError` comme Pydantic l'attend.)
 - Toute fonction d'I/O est `async`.
 
 ## Spécificités mobile money à ne pas sous-estimer

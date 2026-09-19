@@ -25,15 +25,16 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
 
 ## Dette technique — à traiter avant `momo_initiate_payment`
 
-- **Migration SDK 2.x.** Le code cible `FastMCP`, l'API v1 du SDK. Le SDK 2.x
-  renomme `FastMCP` en `MCPServer`. Guide de migration :
-  <https://py.sdk.modelcontextprotocol.io/v2/migration/#fastmcp-renamed-to-mcpserver>
-  À faire tant qu'il n'y a qu'un seul outil à convertir.
-  La borne haute est posée : `pyproject.toml` déclare `mcp>=1.6.0,<2`, donc une
-  installation neuve ne peut plus tirer le SDK 2.x et casser l'import. Ce n'est
-  qu'un garde-fou — il gèle le projet sur la v1 et la migration reste entière.
-  Lever la borne dans le même commit que la migration, jamais avant.
-  (Version installée au moment de la note : 1.30.0.)
+- ~~**Migration SDK 2.x.**~~ **Faite le 2026-09-19**, sur `mcp` 2.2.0.
+  `pyproject.toml` déclare désormais `mcp>=2.2,<3` — la borne basse est celle
+  réellement testée, pas `>=2.0` dont l'API n'a pas été vérifiée. Changements
+  appliqués : `FastMCP` → `MCPServer` (`mcp.server.mcpserver`), `inputSchema`
+  → `input_schema`, `call_tool` prend un `context` et rend un `CallToolResult`.
+  Le piège non évident : **une exception quelconque est maintenant traitée
+  comme un crash et son message est retiré de la réponse.** Tous les messages
+  actionnables passent donc par `ToolError` — consigne ajoutée aux conventions
+  de CLAUDE.md. `mcp.server.fastmcp` subsiste en 2.x comme un module qui lève
+  un `ModuleNotFoundError` explicite pointant vers le guide de migration.
 
 - **MCP Inspector en échec.** Timeout de 30 s au handshake, alors que le serveur
   répond correctement en JSON-RPC direct sur stdin. Cause probable : l'espace
@@ -42,9 +43,9 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
   commande.
 
 - ~~**`extra='forbid'` perdu.**~~ **Réglé le 2026-09-19.** Le modèle
-  d'arguments généré par FastMCP hérite d'`ArgModelBase`, dont la config
+  d'arguments généré par le SDK hérite d'`ArgModelBase`, dont la config
   Pydantic laisse `extra` à « ignore » : `{"pays": "BF"}` renvoyait le
-  catalogue complet avec `isError=False`. `_StrictArgsFastMCP` dans
+  catalogue complet avec `isError=False`. `_StrictArgsMCPServer` dans
   `server.py` refuse désormais tout argument inconnu avant exécution, et
   annonce `additionalProperties: false` dans le schéma publié. Vaut pour tous
   les outils, y compris ceux à venir.
