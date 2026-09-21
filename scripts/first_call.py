@@ -47,15 +47,23 @@ from momo_xof_mcp.phone import mask_msisdn
 
 load_dotenv()
 
-BASE_URL = os.getenv("MOMO_BASE_URL", "").rstrip("/")
+# Base sandbox par défaut, pour qu'un .env réduit à la clé et au mot de passe
+# suffise. Relevée sur le tableau de bord, cf. docs/API-CINETPAY.md.
+BASE_URL = (os.getenv("MOMO_BASE_URL") or "https://api.cinetpay.net").rstrip("/")
 API_KEY = os.getenv("MOMO_API_KEY", "")
 API_PASSWORD = os.getenv("MOMO_API_PASSWORD", "")
 ENV = os.getenv("MOMO_ENV", "sandbox")
 TIMEOUT = float(os.getenv("MOMO_TIMEOUT", "30"))
 
-NOTIFY_URL = os.getenv("MOMO_CALLBACK_URL", "")
-SUCCESS_URL = os.getenv("MOMO_SUCCESS_URL", "")
-FAILED_URL = os.getenv("MOMO_FAILED_URL", "")
+# Les trois URL sont obligatoires côté CinetPay, mais la sonde n'en reçoit
+# jamais rien : aucun paiement ne se conclut en direct_pay: false. On retombe
+# donc sur example.com, domaine réservé par la RFC 2606, pour n'avoir que deux
+# valeurs à saisir dans .env. Le vrai outil, lui, exigera de vraies URL.
+_INERT = "https://example.com/momo"
+NOTIFY_URL = os.getenv("MOMO_CALLBACK_URL") or f"{_INERT}/notify"
+SUCCESS_URL = os.getenv("MOMO_SUCCESS_URL") or f"{_INERT}/success"
+FAILED_URL = os.getenv("MOMO_FAILED_URL") or f"{_INERT}/failed"
+_URLS_ARE_INERT = not os.getenv("MOMO_CALLBACK_URL")
 
 # Identité client : l'API l'exige. Valeurs synthétiques par défaut, sur le
 # domaine example.com réservé par la RFC 2606. Surchargeables si besoin.
@@ -140,9 +148,6 @@ def check_configuration() -> None:
         for name, value in (
             ("MOMO_API_KEY", API_KEY),
             ("MOMO_API_PASSWORD", API_PASSWORD),
-            ("MOMO_CALLBACK_URL", NOTIFY_URL),
-            ("MOMO_SUCCESS_URL", SUCCESS_URL),
-            ("MOMO_FAILED_URL", FAILED_URL),
         )
         if not value
     ]
@@ -150,8 +155,12 @@ def check_configuration() -> None:
         raise SystemExit(
             "Variables manquantes dans .env : "
             + ", ".join(missing)
-            + ".\nLes trois URL sont obligatoires côté CinetPay : notify_url, "
-            "success_url et failed_url. Voir docs/API-CINETPAY.md."
+            + ".\n\nÀ faire :\n"
+            "  1. Tableau de bord CinetPay, page « API & sécurité », définir le\n"
+            "     mot de passe API (il vaut « Non configuré » par défaut).\n"
+            "  2. Copier .env.example en .env, puis y renseigner MOMO_API_KEY\n"
+            "     et MOMO_API_PASSWORD. Rien d'autre n'est obligatoire.\n"
+            "  .env est ignoré par git : aucun risque de le committer."
         )
 
     for name, url in (
@@ -239,6 +248,8 @@ async def main() -> None:
     print(f"réf       : {reference}")
     print(f"montant   : {TEST_AMOUNT} XOF")
     print("direct_pay: False  (aucun téléphone sollicité)")
+    if _URLS_ARE_INERT:
+        print("URL       : example.com par défaut, rien n'y sera envoyé")
     if TEST_MSISDN:
         print(f"numéro    : {mask_msisdn(TEST_MSISDN)}")
     print("-" * 60)
