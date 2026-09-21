@@ -74,18 +74,20 @@ qu'on reste en sandbox, bloquant avant tout passage en production.
   valeur par défaut de `.env.example`. PayDunya reste le candidat pour le
   second agrégateur de secours prévu en v0.2.
 - Wave passe-t-il par l'agrégateur ou nécessite-t-il une intégration directe ?
-- **Quelle API CinetPay exactement ?** Deux générations coexistent dans les
-  sources publiques et elles n'ont ni le même hôte, ni la même
-  authentification, ni les mêmes noms de champs :
-  - Checkout : `POST https://api-checkout.cinetpay.com/v2/payment`, avec
-    `apikey` et `site_id` dans le corps JSON.
-  - Seamless / ancienne : `POST https://api.cinetpay.net/v1/payment`, avec un
-    jeton Bearer obtenu via `/v1/oauth/login`, et des champs différents
-    (`merchant_transaction_id`, `designation`, `success_url`…).
-  À trancher depuis le tableau de bord sandbox avant d'adapter
-  `scripts/first_call.py`. Ne pas écrire la sonde tant que ce n'est pas
-  confirmé : c'est précisément le « code d'appel API écrit à l'aveugle » que
-  CLAUDE.md interdit.
+- ~~**Quelle API CinetPay exactement ?**~~ **Hôte tranché le 2026-09-21** par
+  le tableau de bord : `https://api.cinetpay.net`, sandbox, version
+  **« 1.0 Aurore »**. Ce n'est donc pas `api-checkout.cinetpay.com/v2`.
+  Reste inconnu, et toujours bloquant pour `scripts/first_call.py` :
+  - le chemin exact de l'endpoint de collecte ;
+  - le schéma d'authentification — la page « API & sécurité » expose une clé
+    API **et** un mot de passe API, ce qui laisse ouverte l'hypothèse d'un
+    jeton OAuth préalable ;
+  - les noms exacts des champs du corps et la forme de la réponse.
+  « 1.0 Aurore » est une génération récente : aucune source publique fiable
+  ne la décrit. Ne rien écrire tant que la page d'endpoint n'a pas été lue.
+- **URL de production inconnue.** Seule la base sandbox est connue. À relever
+  avant tout passage en production, et à croiser avec la règle « refuser un
+  endpoint de production tant que `MOMO_ENV=sandbox` ».
 - Les numéros de test sandbox sont-ils les mêmes pour les huit pays ?
 - Plans de numérotation encore à récupérer auprès des régulateurs : Bénin,
   Guinée-Bissau, Mali, Niger, Togo. `prefix_hints.confidence` vaut `none` et la
