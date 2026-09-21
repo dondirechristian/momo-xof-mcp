@@ -50,6 +50,22 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
   annonce `additionalProperties: false` dans le schéma publié. Vaut pour tous
   les outils, y compris ceux à venir.
 
+## Compte CinetPay — à durcir avant la mise en production
+
+Constaté sur le tableau de bord sandbox le 2026-09-21. Sans urgence tant
+qu'on reste en sandbox, bloquant avant tout passage en production.
+
+- **Liste blanche IP vide.** Le tableau de bord indique « L'API est accessible
+  depuis n'importe quelle IP ». Acceptable en sandbox depuis un poste de
+  développement à IP dynamique. En production, la clé seule devient le seul
+  facteur : restreindre aux IP du serveur.
+- **Mot de passe API non configuré.** Sans effet si l'initialisation de
+  paiement n'en a pas besoin. À vérifier lors de l'écriture de la sonde : si
+  le flux de collecte passe par un jeton OAuth, c'est un prérequis.
+- **Plafonds du compte** : 1 000 000 F CFA/jour, 5 000 000 F CFA/mois.
+  `MOMO_MAX_AMOUNT` vaut 50 000 dans `.env.example`, soit un garde-fou serveur
+  vingt fois plus strict que celui de l'agrégateur. Valeur finale à arbitrer.
+
 ## Questions ouvertes
 
 - ~~Quel agrégateur en défaut : CinetPay ou PayDunya ?~~ **Tranché le
