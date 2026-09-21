@@ -20,22 +20,51 @@ combler de mémoire.**
 POST {{baseUrl}}/v1/payment
 ```
 
-### Authentification — INCONNUE, bloquant
+### Authentification — relevée le 2026-09-21
 
-La page d'endpoint ne décrit pas l'en-tête d'authentification. Elle indique
-seulement :
+Un appel préalable délivre un jeton.
 
-> Vous disposez d'un compte (`account_key`/`account_password`) dans chaque pays
-> pour lequel vous souhaitez traiter. Nous utilisons donc le jeton généré à
-> partir de votre `account_key` pour identifier le pays et le fixer sur le
-> formulaire de paiement.
+```
+POST {{baseUrl}}/v1/oauth/login
+```
 
-Il existe donc un endpoint d'authentification préalable qui rend un jeton, et
-ce jeton porte aussi le **pays**. Restent à relever : le chemin de cet
-endpoint, la forme de sa requête et de sa réponse, et la manière dont le jeton
-est transmis à `/v1/payment` (en-tête `Authorization`, ou champ du corps).
+Corps :
 
-Ne pas écrire `scripts/first_call.py` avant d'avoir cette page.
+```json
+{
+    "api_key": "{{account_key}}",
+    "api_password": "{{account_password}}"
+}
+```
+
+Réponse `200` :
+
+```json
+{
+    "code": 200,
+    "status": "OK",
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.<tronqué>",
+    "token_type": "bearer",
+    "expires_in": 5767,
+    "user_email": "marchand@exemple.com"
+}
+```
+
+Réponse d'erreur documentée : `422`.
+
+À retenir :
+
+- Le jeton est un **JWT**, de durée de vie courte — `expires_in` valait 5767
+  secondes, soit environ 1 h 36 dans l'exemple. Une implémentation sérieuse le
+  met en cache et le renouvelle à l'expiration, elle ne se réauthentifie pas à
+  chaque appel.
+- `token_type` vaut `bearer`. La transmission vers `/v1/payment` en
+  `Authorization: Bearer <access_token>` est **déduite de cette convention**,
+  la documentation ne la montrant pas explicitement. C'est précisément ce que
+  la sonde doit confirmer : un `401` la réfuterait.
+- La documentation de `/v1/payment` précise que le jeton **porte aussi le
+  pays** du compte. Un compte par pays, donc un jeu d'identifiants par pays.
+  Le compte SOTECHDI est rattaché au Burkina Faso.
 
 ### Corps de la requête
 
@@ -137,7 +166,8 @@ Orange. Après initialisation, se fier à `details.must_be_redirected` : si
 
 ## Encore à relever
 
-- [ ] Endpoint d'authentification : chemin, requête, réponse, transmission du jeton
+- [x] Endpoint d'authentification — `POST /v1/oauth/login`, relevé le 2026-09-21
+- [ ] Confirmation que le jeton passe bien en `Authorization: Bearer` — la sonde
 - [ ] Liste des codes de paiement (`payment_method`)
 - [ ] Corps d'une réponse `422`
 - [ ] Endpoint de consultation de statut, pour `momo_check_payment_status`
