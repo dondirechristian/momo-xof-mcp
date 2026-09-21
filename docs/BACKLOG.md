@@ -77,14 +77,12 @@ qu'on reste en sandbox, bloquant avant tout passage en production.
 - ~~**Quelle API CinetPay exactement ?**~~ **Hôte tranché le 2026-09-21** par
   le tableau de bord : `https://api.cinetpay.net`, sandbox, version
   **« 1.0 Aurore »**. Ce n'est donc pas `api-checkout.cinetpay.com/v2`.
-  Reste inconnu, et toujours bloquant pour `scripts/first_call.py` :
-  - le chemin exact de l'endpoint de collecte ;
-  - le schéma d'authentification — la page « API & sécurité » expose une clé
-    API **et** un mot de passe API, ce qui laisse ouverte l'hypothèse d'un
-    jeton OAuth préalable ;
-  - les noms exacts des champs du corps et la forme de la réponse.
-  « 1.0 Aurore » est une génération récente : aucune source publique fiable
-  ne la décrit. Ne rien écrire tant que la page d'endpoint n'a pas été lue.
+  Endpoint de collecte, champs et réponse **relevés le 2026-09-21** et
+  consignés dans `docs/API-CINETPAY.md` : `POST /v1/payment`.
+  **Reste bloquant : l'authentification.** La page d'endpoint n'en dit rien,
+  sinon qu'un jeton est « généré à partir de votre `account_key` » et qu'il
+  porte aussi le pays. Il existe donc un endpoint d'authentification non
+  relevé. Ne pas écrire `scripts/first_call.py` avant de l'avoir lu.
 - **URL de production inconnue.** Seule la base sandbox est connue. À relever
   avant tout passage en production, et à croiser avec la règle « refuser un
   endpoint de production tant que `MOMO_ENV=sandbox` ».
