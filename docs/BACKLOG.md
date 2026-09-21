@@ -52,8 +52,24 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
 
 ## Questions ouvertes
 
-- Quel agrégateur en défaut : CinetPay ou PayDunya ?
+- ~~Quel agrégateur en défaut : CinetPay ou PayDunya ?~~ **Tranché le
+  2026-09-21 : CinetPay.** Compte sandbox SOTECHDI (Burkina Faso) créé et
+  actif, 0 transaction à ce stade. `MOMO_PROVIDER=cinetpay` était déjà la
+  valeur par défaut de `.env.example`. PayDunya reste le candidat pour le
+  second agrégateur de secours prévu en v0.2.
 - Wave passe-t-il par l'agrégateur ou nécessite-t-il une intégration directe ?
+- **Quelle API CinetPay exactement ?** Deux générations coexistent dans les
+  sources publiques et elles n'ont ni le même hôte, ni la même
+  authentification, ni les mêmes noms de champs :
+  - Checkout : `POST https://api-checkout.cinetpay.com/v2/payment`, avec
+    `apikey` et `site_id` dans le corps JSON.
+  - Seamless / ancienne : `POST https://api.cinetpay.net/v1/payment`, avec un
+    jeton Bearer obtenu via `/v1/oauth/login`, et des champs différents
+    (`merchant_transaction_id`, `designation`, `success_url`…).
+  À trancher depuis le tableau de bord sandbox avant d'adapter
+  `scripts/first_call.py`. Ne pas écrire la sonde tant que ce n'est pas
+  confirmé : c'est précisément le « code d'appel API écrit à l'aveugle » que
+  CLAUDE.md interdit.
 - Les numéros de test sandbox sont-ils les mêmes pour les huit pays ?
 - Plans de numérotation encore à récupérer auprès des régulateurs : Bénin,
   Guinée-Bissau, Mali, Niger, Togo. `prefix_hints.confidence` vaut `none` et la
