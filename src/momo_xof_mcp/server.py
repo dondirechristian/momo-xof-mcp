@@ -1,9 +1,13 @@
 """Serveur MCP `momo_xof_mcp` — déclaration de l'instance et des outils.
 
-v0.1 : seul `momo_list_operators` est implémenté. Les deux autres outils de la
-liste figée (`momo_initiate_payment`, `momo_check_payment_status`) ne sont pas
-encore écrits — ils attendent une réponse réelle de l'API sandbox de
-l'agrégateur, conformément à la règle « aucun appel API écrit à l'aveugle ».
+v0.1 : `momo_list_operators` et `momo_initiate_payment` sont implémentés.
+`momo_check_payment_status` reste à écrire — son endpoint n'a pas encore été
+relevé, et la règle « aucun appel API écrit à l'aveugle » s'applique.
+
+`momo_initiate_payment` déplace de l'argent réel. Ses garde-fous sont dans
+`config.py` (verrou sandbox, plafond de montant) et dans le corps de l'outil
+(montant entier positif, référence fournie par l'appelant et plafonnée à
+30 caractères). Ne jamais en relâcher un pour faire passer un test.
 
 Transport stdio : rien ne doit jamais être écrit sur stdout en dehors du
 protocole MCP. Pas de `print`, pas de logging vers stdout.
@@ -20,7 +24,10 @@ from mcp.types import CallToolResult, InputRequiredResult, ToolAnnotations
 from mcp.types import Tool as MCPTool
 from pydantic import Field
 
+from .cinetpay import CinetPayError, initiate_payment
+from .config import ConfigurationError, load_config
 from .operators import SUPPORTED_COUNTRY_CODES, build_catalogue, find_country
+from .phone import InvalidMsisdn, normalize_msisdn
 
 
 class _StrictArgsMCPServer(MCPServer):
@@ -127,3 +134,166 @@ async def momo_list_operators(
 
     catalogue = build_catalogue(country_code)
     return json.dumps(catalogue, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(
+    name="momo_initiate_payment",
+    description=(
+        "Request a mobile money payment from a customer in the XOF zone. "
+        "IMPORTANT: this REQUESTS a payment, it never confirms one. A successful "
+        "call means the aggregator accepted the request and returned a payment "
+        "link; the customer has not paid yet and no money has moved. The final "
+        "outcome arrives asynchronously and must be checked separately. "
+        "Returns a payment_url that the customer must open to complete the "
+        "payment, plus the transaction identifiers needed to reconcile it. "
+        "The caller must supply a unique reference for idempotency; it is never "
+        "generated silently. Amounts are whole XOF: the franc has no decimals. "
+        "A server-side ceiling rejects amounts above the configured maximum."
+    ),
+    annotations=ToolAnnotations(
+        title="Request a mobile money payment (moves real money)",
+        readOnlyHint=False,
+        destructiveHint=True,
+        # La référence marchand doit être unique côté CinetPay, mais le
+        # comportement d'un rappel avec la même référence n'a pas été observé.
+        # On ne promet donc pas l'idempotence.
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+async def momo_initiate_payment(
+    amount: Annotated[
+        int,
+        Field(
+            description=(
+                "Amount in whole XOF. The West African CFA franc has no decimal "
+                "subunit, so this must be an integer — never a float. Rejected "
+                "above the server's configured ceiling."
+            ),
+            examples=[500, 2000],
+        ),
+    ],
+    reference: Annotated[
+        str,
+        Field(
+            description=(
+                "Your own unique reference for this payment, used for "
+                "idempotency and reconciliation. Maximum 30 characters. It is "
+                "returned unchanged by the aggregator. Never reuse one, and "
+                "never let it be generated for you: you need it to match the "
+                "payment back to your order."
+            ),
+            examples=["CMD-2026-0042", "invoice-8871"],
+        ),
+    ],
+    description: Annotated[
+        str,
+        Field(
+            description="Short label shown to the customer on the payment page.",
+            examples=["Commande 42 - SOTECHDI"],
+        ),
+    ],
+    client_email: Annotated[
+        str,
+        Field(
+            description="Customer email address. Required by the aggregator.",
+            examples=["client@example.com"],
+        ),
+    ],
+    client_first_name: Annotated[
+        str,
+        Field(
+            description="Customer first name, 2 to 255 characters. Required.",
+            examples=["Aminata"],
+        ),
+    ],
+    client_last_name: Annotated[
+        str,
+        Field(
+            description="Customer last name, 2 to 255 characters. Required.",
+            examples=["Ouedraogo"],
+        ),
+    ],
+    customer_phone: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Optional customer mobile number. Give it in E.164 form "
+                "(+22670123456), or in national form together with 'country'. "
+                "It pre-fills the payment page. Omit it to let the customer "
+                "enter their own number."
+            ),
+            examples=["+22670123456", "70123456"],
+        ),
+    ] = None,
+    country: Annotated[
+        str | None,
+        Field(
+            description=(
+                "ISO 3166-1 alpha-2 country code, needed only to interpret a "
+                "national-format 'customer_phone'. Use momo_list_operators to "
+                "see the supported countries."
+            ),
+            examples=["BF", "CI"],
+        ),
+    ] = None,
+) -> str:
+    """Déclenche une demande de paiement. Ne confirme jamais un paiement."""
+    try:
+        config = load_config()
+    except ConfigurationError as exc:
+        raise ToolError(str(exc)) from exc
+
+    if amount <= 0:
+        raise ToolError(f"Amount must be greater than zero, got {amount}.")
+
+    if amount > config.max_amount:
+        raise ToolError(
+            f"Amount {amount} XOF exceeds the server-side ceiling of "
+            f"{config.max_amount} XOF (MOMO_MAX_AMOUNT). This limit is enforced "
+            "by this server, not by the aggregator. Raise it deliberately in "
+            "the server configuration if this payment is legitimate."
+        )
+
+    cleaned_reference = reference.strip()
+    if not cleaned_reference:
+        raise ToolError(
+            "A reference is required and must be supplied by you, never "
+            "generated for you: it is what lets you match this payment back to "
+            "your order."
+        )
+    if len(cleaned_reference) > 30:
+        raise ToolError(
+            f"Reference is {len(cleaned_reference)} characters, but the "
+            "aggregator accepts at most 30."
+        )
+
+    normalized_phone: str | None = None
+    if customer_phone:
+        try:
+            normalized_phone = normalize_msisdn(customer_phone, country)
+        except InvalidMsisdn as exc:
+            raise ToolError(str(exc)) from exc
+
+    try:
+        result = await initiate_payment(
+            config,
+            reference=cleaned_reference,
+            amount=amount,
+            description=description,
+            client_email=client_email,
+            client_first_name=client_first_name,
+            client_last_name=client_last_name,
+            customer_phone=normalized_phone,
+        )
+    except CinetPayError as exc:
+        raise ToolError(str(exc)) from exc
+
+    result["currency"] = "XOF"
+    result["environment"] = config.env
+    result["what_this_means"] = (
+        "The payment has been REQUESTED, not completed. No money has moved yet. "
+        "Send the customer to payment_url to pay. The final outcome is not in "
+        "this response and arrives asynchronously."
+    )
+    return json.dumps(result, ensure_ascii=False, indent=2)

@@ -55,6 +55,17 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
 Constaté sur le tableau de bord sandbox le 2026-09-21. Sans urgence tant
 qu'on reste en sandbox, bloquant avant tout passage en production.
 
+- **IP dynamique contre liste blanche — bloquant à l'usage.** Mesuré le
+  2026-09-22 : l'adresse publique du poste est passée de `105.235.191.52` à
+  `197.239.96.186` **en une vingtaine de minutes**. Chaque changement
+  réintroduit le `2011 / NOT_ALLOWED`. Développer depuis cette connexion
+  suppose de remettre l'IP à jour sans cesse. Trois sorties possibles :
+  demander à CinetPay si la liste blanche peut être désactivée en sandbox ;
+  déployer depuis une machine à IP fixe, VPS ou serveur de l'entreprise ;
+  passer par un tunnel sortant à adresse stable. À trancher avant d'aller
+  plus loin dans les tests d'intégration, sinon chaque séance commencera par
+  dix minutes de tableau de bord.
+
 - ~~**Liste blanche IP vide.**~~ **Corrigé par l'observation le 2026-09-22.**
   Le tableau de bord affirme « Aucune IP configurée. L'API est accessible
   depuis n'importe quelle IP ». C'est faux : le premier appel réel a été
