@@ -52,6 +52,44 @@ Réponse `200` :
 
 Réponse d'erreur documentée : `422`.
 
+### Forme des erreurs — observée le 2026-09-22
+
+Premier appel réel de la sonde, avant toute mise en liste blanche :
+
+```json
+HTTP 422
+{
+    "code": 2011,
+    "status": "NOT_ALLOWED",
+    "description": "This Ip is not withlisted"
+}
+```
+
+Enseignements, aucun n'était documenté :
+
+- Les erreurs de haut niveau portent **`description`**, pas `message`. Le
+  champ `message` n'existe que dans l'objet `details` d'un paiement. Une
+  implémentation qui ne lit que `message` affichera une erreur vide.
+- `status` peut valoir **`NOT_ALLOWED`**, qui ne figure pas dans la liste des
+  statuts de paiement. Les statuts d'erreur d'appel et les statuts de
+  transaction sont donc deux vocabulaires distincts, à ne pas mélanger.
+- `code` `2011` = IP non autorisée.
+- Le `422` sert aussi bien au refus d'autorisation qu'à la validation de
+  champs. Le code HTTP seul ne suffit pas à distinguer les cas : il faut lire
+  `code`.
+- La faute de frappe `withlisted` est dans la réponse de l'API. Ne pas la
+  corriger dans un test de correspondance de chaîne.
+
+### Liste blanche IP — piège du tableau de bord
+
+Le tableau de bord affiche, quand aucune IP n'est enregistrée :
+
+> Aucune IP configurée. L'API est accessible depuis n'importe quelle IP.
+
+**C'est faux.** Une liste blanche vide refuse tout appel, avec le `2011`
+ci-dessus. Il faut y inscrire explicitement l'adresse appelante. Sur une
+connexion à IP dynamique, l'entrée devient caduque au changement d'adresse.
+
 À retenir :
 
 - Le jeton est un **JWT**, de durée de vie courte — `expires_in` valait 5767

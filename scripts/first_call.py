@@ -172,6 +172,44 @@ def check_configuration() -> None:
             raise SystemExit(f"{name} dépasse 120 caractères, limite de l'API.")
 
 
+def _login_failure(body: Any) -> str:
+    """Traduit un échec d'authentification en consigne utile.
+
+    L'API répond `{code, status, description}`. Accuser les identifiants par
+    défaut, comme le faisait la première version de cette sonde, envoie sur
+    une fausse piste : le refus le plus courant vient de la liste blanche IP.
+    On relaie donc ce que l'API dit réellement.
+    """
+    if not isinstance(body, dict):
+        return "Authentification échouée, réponse illisible. Voir le corps ci-dessus."
+
+    code = body.get("code")
+    status = body.get("status")
+    description = str(body.get("description") or body.get("message") or "")
+
+    header = f"Authentification échouée — code {code}, statut {status}.\n{description}"
+
+    if code == 2011 or "whitelist" in description.lower() or "withlist" in description.lower():
+        return (
+            f"{header}\n\n"
+            "Ce n'est PAS un problème d'identifiants : l'API refuse l'adresse IP\n"
+            "appelante. Le tableau de bord affiche « Aucune IP configurée, l'API\n"
+            "est accessible depuis n'importe quelle IP » — c'est trompeur. Une\n"
+            "liste blanche vide refuse tout.\n\n"
+            "À faire : tableau de bord, page « API & sécurité », encadré « Liste\n"
+            "Blanche IP », ajouter l'IP publique de cette machine.\n"
+            "Sur une connexion à IP dynamique, l'adresse change et l'erreur\n"
+            "réapparaîtra : il faudra la remettre à jour."
+        )
+
+    return (
+        f"{header}\n\n"
+        "Vérifier MOMO_API_KEY et MOMO_API_PASSWORD dans .env. Le mot de passe\n"
+        "API se définit sur le tableau de bord, page « API & sécurité » ; il vaut\n"
+        "« Non configuré » tant qu'on ne l'a pas fait."
+    )
+
+
 async def login(client: httpx.AsyncClient) -> str:
     """Échange api_key / api_password contre un jeton d'accès."""
     response = await client.post(
@@ -182,11 +220,7 @@ async def login(client: httpx.AsyncClient) -> str:
     body = show("1. POST /v1/oauth/login", response)
 
     if response.status_code != 200 or not isinstance(body, dict):
-        raise SystemExit(
-            "Authentification échouée. Vérifier MOMO_API_KEY et "
-            "MOMO_API_PASSWORD dans .env. Le mot de passe API se définit sur "
-            "le tableau de bord, page « API & sécurité »."
-        )
+        raise SystemExit(_login_failure(body))
 
     token = body.get("access_token")
     if not token:

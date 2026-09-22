@@ -55,10 +55,14 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
 Constaté sur le tableau de bord sandbox le 2026-09-21. Sans urgence tant
 qu'on reste en sandbox, bloquant avant tout passage en production.
 
-- **Liste blanche IP vide.** Le tableau de bord indique « L'API est accessible
-  depuis n'importe quelle IP ». Acceptable en sandbox depuis un poste de
-  développement à IP dynamique. En production, la clé seule devient le seul
-  facteur : restreindre aux IP du serveur.
+- ~~**Liste blanche IP vide.**~~ **Corrigé par l'observation le 2026-09-22.**
+  Le tableau de bord affirme « Aucune IP configurée. L'API est accessible
+  depuis n'importe quelle IP ». C'est faux : le premier appel réel a été
+  refusé par un `422` / `code 2011` / `NOT_ALLOWED`. Une liste vide refuse
+  tout. La liste blanche n'est donc pas un durcissement optionnel à prévoir
+  pour la production, c'est un **prérequis de fonctionnement**, dès la
+  sandbox. Point de vigilance : sur une connexion à IP dynamique, l'entrée
+  devient caduque au changement d'adresse et l'erreur réapparaît.
 - **Mot de passe API non configuré.** Sans effet si l'initialisation de
   paiement n'en a pas besoin. À vérifier lors de l'écriture de la sonde : si
   le flux de collecte passe par un jeton OAuth, c'est un prérequis.
