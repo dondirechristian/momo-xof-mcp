@@ -67,9 +67,13 @@ _URLS_ARE_INERT = not os.getenv("MOMO_CALLBACK_URL")
 
 # Identité client : l'API l'exige. Valeurs synthétiques par défaut, sur le
 # domaine example.com réservé par la RFC 2606. Surchargeables si besoin.
-CLIENT_EMAIL = os.getenv("MOMO_TEST_EMAIL", "sandbox@example.com")
-CLIENT_FIRST_NAME = os.getenv("MOMO_TEST_FIRST_NAME", "Sandbox")
-CLIENT_LAST_NAME = os.getenv("MOMO_TEST_LAST_NAME", "Probe")
+# `or` et non le second argument de getenv : .env déclare ces variables vides,
+# et getenv ne retombe sur son défaut que si la variable est ABSENTE. Avec le
+# défaut positionnel, la sonde envoyait des chaînes vides et l'API répondait
+# « champ obligatoire ».
+CLIENT_EMAIL = os.getenv("MOMO_TEST_EMAIL") or "sandbox@example.com"
+CLIENT_FIRST_NAME = os.getenv("MOMO_TEST_FIRST_NAME") or "Sandbox"
+CLIENT_LAST_NAME = os.getenv("MOMO_TEST_LAST_NAME") or "Probe"
 
 # Numéro de test, FACULTATIF et vide par défaut. Aucun numéro n'est inventé
 # ici. Non renseigné, le champ n'est simplement pas envoyé — ce qui est sans

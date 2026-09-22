@@ -132,7 +132,109 @@ Contraintes signalées par la documentation :
 - `client_phone_number` n'est pris en compte que si une option est activée sur
   le compte ; sans elle, le client peut modifier son numéro sur la passerelle.
 
-### Réponse de succès — `200`
+### RÈGLE CARDINALE — deux niveaux, deux significations
+
+Observé le 2026-09-22 sur des appels réels. Rien de tout cela n'est documenté,
+et s'y tromper coûte de l'argent.
+
+| Niveau | Ce qu'il décrit |
+|---|---|
+| `code` / `status` racine | le sort de la **requête HTTP** |
+| `details.code` / `details.status` | le sort de la **transaction** |
+
+Les deux appels suivants ont **tous deux** répondu `HTTP 200` avec
+`"code": 200, "status": "OK"` à la racine :
+
+- l'un avec `details.status = "INITIATED"` — demande acceptée ;
+- l'autre avec `details.status = "INVALID_PARAMS"` — requête rejetée, rien
+  n'a été créé côté paiement.
+
+**Ne jamais conclure au succès depuis le niveau racine.** Toujours lire
+`details.status`. Un test sur `status == "OK"` croira avoir encaissé de
+l'argent qui n'a jamais bougé.
+
+### Réponse d'initialisation réussie — observée le 2026-09-22
+
+```json
+{
+  "code": 200,
+  "status": "OK",
+  "payment_token": "1f1b680fe7e26c8683d0910fa1926b4f01a0c915fd7670f582584c0cac407dc5",
+  "notify_token": "9bfba2413af0403cb5227725371d5060",
+  "transaction_id": "69fe371559c34c6f98971be5c8f4e4df",
+  "merchant_transaction_id": "probe-6fdc5f42f74f",
+  "payment_url": "https://secure.cinetpay.net/checkout/<payment_token>",
+  "details": {
+    "code": 2001,
+    "status": "INITIATED",
+    "message": "Veuillez cliquer sur le lien pour continuer le paiement",
+    "payment_code": null,
+    "must_be_redirected": true
+  }
+}
+```
+
+À retenir :
+
+- `merchant_transaction_id` est **renvoyé tel qu'envoyé**. C'est la clé de
+  rapprochement côté appelant.
+- `payment_url` se termine par le **`payment_token`**, pas par le
+  `transaction_id`.
+- `expires_in` du jeton valait **86400 s** en réel, contre 5767 dans
+  l'exemple de la documentation. Ne pas coder la durée en dur, lire le champ.
+
+### Réponse d'erreur de validation — observée le 2026-09-22
+
+Même endpoint, champs d'identité client envoyés vides. **`HTTP 200`.**
+
+```json
+{
+  "code": 200,
+  "status": "OK",
+  "transaction_id": "ER-P-2339255-probe-6e14383b056b",
+  "notify_token": "...",
+  "payment_token": "...",
+  "details": {
+    "code": 1004,
+    "status": "INVALID_PARAMS",
+    "message": "Params you provides are invalid",
+    "errors": {
+      "client_first_name": ["Le champ client first name est obligatoire."],
+      "client_last_name": ["Le champ client last name est obligatoire."],
+      "client_email": ["Le champ client email est obligatoire."]
+    }
+  }
+}
+```
+
+À retenir :
+
+- `details.errors` est un objet **champ → liste de messages**, en français.
+  C'est la source à relayer à l'appelant pour un message actionnable.
+- `payment_url` est **absent** de cette réponse. Sa présence n'est donc pas
+  garantie : ne pas y accéder sans vérifier.
+- Le `transaction_id` valait ici `ER-P-2339255-probe-…`, alors qu'il vaut un
+  hexadécimal de 32 caractères en cas de succès. **Le format n'est pas
+  stable** : le traiter comme une chaîne opaque, ne jamais l'analyser.
+
+### Vocabulaire des statuts — état des observations
+
+`details.status`, valeurs **observées** en gras, les autres seulement
+documentées :
+
+| Valeur | `code` | Sens | Final ? |
+|---|---|---|---|
+| **`INITIATED`** | **2001** | demande acceptée, paiement à faire | non |
+| `PENDING` | — | en cours de traitement | non |
+| `SUCCESS` | — | débité, paiement réussi | oui |
+| `FAILED` | 2010 | non finalisé ou erreur opérateur | oui |
+| **`INVALID_PARAMS`** | **1004** | requête rejetée, rien n'a été créé | oui |
+
+`status` racine, valeurs observées : `OK`, et `NOT_ALLOWED` (code 2011,
+HTTP 422). Ces deux vocabulaires sont **disjoints** et ne doivent pas être
+fusionnés dans une même énumération.
+
+### Réponse de succès — exemple de la documentation
 
 ```json
 {
@@ -205,8 +307,8 @@ Orange. Après initialisation, se fier à `details.must_be_redirected` : si
 ## Encore à relever
 
 - [x] Endpoint d'authentification — `POST /v1/oauth/login`, relevé le 2026-09-21
-- [ ] Confirmation que le jeton passe bien en `Authorization: Bearer` — la sonde
+- [x] Jeton en `Authorization: Bearer` — **confirmé** par la sonde le 2026-09-22
 - [ ] Liste des codes de paiement (`payment_method`)
-- [ ] Corps d'une réponse `422`
+- [x] Corps d'une réponse `422` — relevé (code 2011, NOT_ALLOWED)
 - [ ] Endpoint de consultation de statut, pour `momo_check_payment_status`
 - [ ] URL de base de production
