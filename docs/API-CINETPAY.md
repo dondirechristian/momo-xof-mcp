@@ -304,6 +304,18 @@ Orange. Après initialisation, se fier à `details.must_be_redirected` : si
    `momo_list_operators` aux codes CinetPay. La liste des codes n'est pas
    encore relevée.
 
+## Vérifications effectuées
+
+- **2026-09-22 — `momo_initiate_payment`, chemin nominal, bout en bout.**
+  Client MCP réel sur transport stdio, jusqu'à l'API sandbox. Enchaînement
+  `/v1/oauth/login` puis `/v1/payment` avec jeton en cache. Réponse
+  `details.status = "INITIATED"`, `payment_url` reçue, `merchant_transaction_id`
+  renvoyé tel qu'envoyé. Montant 100 XOF, `direct_pay: false`, aucun téléphone
+  sollicité, aucun débit.
+- **2026-09-22 — les six garde-fous de l'outil.** Plafond dépassé, montant nul,
+  référence vide, référence de plus de 30 caractères, numéro invalide,
+  argument mal orthographié : tous refusés avant tout appel réseau.
+
 ## Encore à relever
 
 - [x] Endpoint d'authentification — `POST /v1/oauth/login`, relevé le 2026-09-21
