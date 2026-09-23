@@ -9,8 +9,14 @@ from __future__ import annotations
 
 import pytest
 
-from momo_xof_mcp.cinetpay import FINAL_STATUSES, STATUS_MAP, map_status
 from momo_xof_mcp.config import ConfigurationError, load_config
+from momo_xof_mcp.statuses import (
+    FINAL_STABLE_STATUSES,
+    IN_FLIGHT_STATUSES,
+    STATUS_TABLE,
+    is_final,
+    map_status,
+)
 
 _COMPLETE_ENV = {
     "MOMO_ENV": "sandbox",
@@ -117,42 +123,94 @@ class TestStatusMapping:
     @pytest.mark.parametrize(
         ("provider", "expected"),
         [
+            ("OK", "ok"),
+            ("SUCCESS", "succeeded"),
+            ("OPERATION_ERROR", "provider_error"),
+            ("NOT_FOUND", "not_found"),
+            ("INVALID_CREDENTIALS", "auth_error"),
+            ("INVALID_PARAMS", "rejected"),
+            ("EXPIRED_TOKEN", "auth_error"),
+            ("INVALID_TOKEN", "auth_error"),
+            ("TRANSACTION_EXIST", "duplicate"),
             ("INITIATED", "accepted"),
             ("PENDING", "pending"),
-            ("SUCCESS", "succeeded"),
+            ("EXPIRED", "expired"),
+            ("OTP_ERROR", "otp_invalid"),
+            ("OTP_EXPIRED", "otp_invalid"),
+            ("INSUFFICIENT_BALANCE", "failed"),
+            ("USER_NOT_FOUND", "customer_problem"),
+            ("USER_IS_BLOCKED", "customer_problem"),
             ("FAILED", "failed"),
-            ("INVALID_PARAMS", "rejected"),
+            ("NOT_ALLOWED", "auth_error"),
         ],
     )
     def test_every_documented_status_is_mapped(self, provider, expected):
         assert map_status(provider) == expected
 
+    def test_the_table_covers_the_whole_documented_list(self):
+        # Dix-neuf lignes dans la section « Codes de statut » de CinetPay.
+        assert len(STATUS_TABLE) == 19
+
+    def test_codes_match_the_documentation(self):
+        expected = {
+            "OK": 200, "SUCCESS": 100, "OPERATION_ERROR": -1, "NOT_FOUND": 404,
+            "INVALID_CREDENTIALS": 1005, "INVALID_PARAMS": 1004,
+            "EXPIRED_TOKEN": 1003, "INVALID_TOKEN": 1002,
+            "TRANSACTION_EXIST": 1200, "INITIATED": 2001, "PENDING": 2002,
+            "EXPIRED": 2003, "OTP_ERROR": 2004, "OTP_EXPIRED": 2008,
+            "INSUFFICIENT_BALANCE": 2005, "USER_NOT_FOUND": 2006,
+            "USER_IS_BLOCKED": 2007, "FAILED": 2010, "NOT_ALLOWED": 2011,
+        }
+        assert {name: entry.code for name, entry in STATUS_TABLE.items()} == expected
+
     def test_mapping_is_case_insensitive(self):
         assert map_status("initiated") == "accepted"
 
-    @pytest.mark.parametrize("value", ["WAITING_CUSTOMER", "", None, "OK"])
+    @pytest.mark.parametrize("value", ["WAITING_CUSTOMER", "", None, "PAID"])
     def test_an_unmapped_status_never_becomes_a_neighbour(self, value):
         # Rabattre un statut inconnu sur « accepted » ou « failed » serait
         # inventer une information. Il ressort en "unknown", et l'appelant
         # doit trancher.
         assert map_status(value) == "unknown"
 
-    def test_initiated_is_not_final(self):
-        assert "accepted" not in FINAL_STATUSES
 
-    def test_pending_is_not_final(self):
-        assert "pending" not in FINAL_STATUSES
+class TestStatusFinality:
+    """La colonne « Statut final » vient de CinetPay, pas de l'intuition."""
 
-    @pytest.mark.parametrize("status", ["succeeded", "failed", "rejected"])
-    def test_terminal_statuses_are_final(self, status):
-        assert status in FINAL_STATUSES
+    @pytest.mark.parametrize(
+        "provider",
+        ["SUCCESS", "TRANSACTION_EXIST", "INSUFFICIENT_BALANCE", "FAILED"],
+    )
+    def test_the_four_documented_final_statuses(self, provider):
+        assert is_final(provider) is True
 
-    def test_no_mapped_status_is_a_raw_provider_value(self):
-        # Le vocabulaire stable ne doit pas se confondre avec celui de
-        # l'agrégateur, sinon le mapping ne sert à rien.
-        assert not set(STATUS_MAP.values()) & set(STATUS_MAP)
+    def test_exactly_four_statuses_are_final(self):
+        assert sum(1 for entry in STATUS_TABLE.values() if entry.is_final) == 4
 
-    def test_success_never_maps_to_accepted(self):
+    @pytest.mark.parametrize("provider", ["INITIATED", "PENDING"])
+    def test_an_in_flight_payment_is_never_final(self, provider):
+        assert is_final(provider) is False
+        assert map_status(provider) in IN_FLIGHT_STATUSES
+
+    def test_expired_is_not_final_however_surprising(self):
+        # Contre-intuitif, et c'est pour cela qu'on ne le devine pas : la
+        # documentation marque EXPIRED « Statut final : Non ».
+        assert is_final("EXPIRED") is False
+
+    def test_invalid_params_is_not_final(self):
+        # Corrige une erreur de la première version, qui le classait final.
+        assert is_final("INVALID_PARAMS") is False
+
+    def test_an_unknown_status_is_never_claimed_final(self):
+        # Affirmer qu'une transaction est close sans le savoir est la pire
+        # des deux erreurs possibles.
+        assert is_final("WAITING_CUSTOMER") is False
+        assert is_final(None) is False
+
+    def test_final_stable_statuses_are_derived_not_hardcoded(self):
+        assert FINAL_STABLE_STATUSES == {"succeeded", "duplicate", "failed"}
+
+    def test_success_and_initiated_never_collapse(self):
         # Le piège inverse : un paiement réussi ne doit pas ressortir comme
         # une simple demande acceptée, ni l'inverse.
         assert map_status("SUCCESS") != map_status("INITIATED")

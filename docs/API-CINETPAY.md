@@ -217,22 +217,51 @@ Même endpoint, champs d'identité client envoyés vides. **`HTTP 200`.**
   hexadécimal de 32 caractères en cas de succès. **Le format n'est pas
   stable** : le traiter comme une chaîne opaque, ne jamais l'analyser.
 
-### Vocabulaire des statuts — état des observations
+### Table des statuts — section « Codes de statut », relevée le 2026-09-23
 
-`details.status`, valeurs **observées** en gras, les autres seulement
-documentées :
+Source officielle et complète. Elle remplace les déductions partielles des
+jours précédents, dont **deux étaient fausses** :
 
-| Valeur | `code` | Sens | Final ? |
+1. J'avais écrit que les statuts racine et ceux de `details` formaient deux
+   vocabulaires disjoints. **Faux** : c'est une table unique. `OK` (200) et
+   `NOT_ALLOWED` (2011) y côtoient `INITIATED` (2001).
+2. J'avais classé `INVALID_PARAMS` comme final. **Faux** : la documentation le
+   marque non final.
+
+| `code` | `status` | Sens | Final |
 |---|---|---|---|
-| **`INITIATED`** | **2001** | demande acceptée, paiement à faire | non |
-| `PENDING` | — | en cours de traitement | non |
-| `SUCCESS` | — | débité, paiement réussi | oui |
-| `FAILED` | 2010 | non finalisé ou erreur opérateur | oui |
-| **`INVALID_PARAMS`** | **1004** | requête rejetée, rien n'a été créé | oui |
+| 200 | `OK` | Opération réussie | non |
+| 100 | `SUCCESS` | Transaction traitée avec succès | **oui** |
+| -1 | `OPERATION_ERROR` | Une erreur s'est produite | non |
+| 404 | `NOT_FOUND` | Introuvable | non |
+| 1005 | `INVALID_CREDENTIALS` | Identifiants invalides | non |
+| 1004 | `INVALID_PARAMS` | Paramètres invalides | non |
+| 1003 | `EXPIRED_TOKEN` | Jeton expiré | non |
+| 1002 | `INVALID_TOKEN` | Jeton invalide | non |
+| 1200 | `TRANSACTION_EXIST` | La transaction existe déjà | **oui** |
+| 2001 | `INITIATED` | Initiée, en attente du client | non |
+| 2002 | `PENDING` | Le client a commencé le paiement | non |
+| 2003 | `EXPIRED` | Expirée, le client n'a pas confirmé | non |
+| 2004 | `OTP_ERROR` | Code OTP incorrect | non |
+| 2008 | `OTP_EXPIRED` | Code OTP expiré | non |
+| 2005 | `INSUFFICIENT_BALANCE` | Solde marchand insuffisant | **oui** |
+| 2006 | `USER_NOT_FOUND` | L'utilisateur n'existe pas | non |
+| 2007 | `USER_IS_BLOCKED` | L'utilisateur est bloqué | non |
+| 2010 | `FAILED` | Le paiement a échoué | **oui** |
+| 2011 | `NOT_ALLOWED` | IP non autorisée | non |
 
-`status` racine, valeurs observées : `OK`, et `NOT_ALLOWED` (code 2011,
-HTTP 422). Ces deux vocabulaires sont **disjoints** et ne doivent pas être
-fusionnés dans une même énumération.
+**Quatre statuts finaux seulement**, et la liste surprend : `EXPIRED` n'est pas
+final alors qu'on l'attendrait, `INSUFFICIENT_BALANCE` l'est. C'est exactement
+pourquoi cette colonne se recopie et ne se devine pas. La table vit dans
+`src/momo_xof_mcp/statuses.py`, avec la traduction vers le vocabulaire stable.
+
+Deux enseignements pour la suite :
+
+- **`TRANSACTION_EXIST` (1200) est la réponse à l'idempotence.** Rejouer une
+  `merchant_transaction_id` ne crée pas un second paiement, l'API la refuse.
+  Reste à l'observer réellement avant de s'en prévaloir.
+- **`INSUFFICIENT_BALANCE` parle du solde du MARCHAND**, pas du client. Sur
+  une collecte, il ne devrait pas apparaître ; sur un décaissement, si.
 
 ### Réponse de succès — exemple de la documentation
 

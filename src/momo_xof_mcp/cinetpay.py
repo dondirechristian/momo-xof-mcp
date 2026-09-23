@@ -23,39 +23,22 @@ from typing import Any, Final
 import httpx
 
 from .config import Config
-
-# Correspondance explicite entre les statuts de l'agrégateur et un vocabulaire
-# stable, exigée par CLAUDE.md. Aucun statut n'est inventé : toute valeur
-# absente de cette table ressort en "unknown" avec la valeur brute, jamais
-# rabattue en silence sur un statut voisin.
-#
-# En gras dans docs/API-CINETPAY.md, les valeurs réellement observées :
-# INITIATED et INVALID_PARAMS. Les autres sont documentées par CinetPay.
-STATUS_MAP: Final[dict[str, str]] = {
-    "INITIATED": "accepted",
-    "PENDING": "pending",
-    "SUCCESS": "succeeded",
-    "FAILED": "failed",
-    "INVALID_PARAMS": "rejected",
-}
-
-# Statuts au-delà desquels plus rien ne bougera.
-FINAL_STATUSES: Final[frozenset[str]] = frozenset({"succeeded", "failed", "rejected"})
+from .statuses import is_final, lookup, map_status
 
 # Marge retranchée à expires_in, pour ne pas présenter un jeton qui expire
 # pendant le vol.
 _TOKEN_SAFETY_MARGIN: Final[int] = 60
 
+# Les seuls statuts stables qui décrivent une demande valablement enregistrée.
+# Tout le reste fait lever : mieux vaut une erreur explicite qu'une réponse
+# qu'un agent prendrait pour un succès.
+_ACCEPTABLE_AT_INITIATION: Final[frozenset[str]] = frozenset(
+    {"accepted", "pending", "succeeded"}
+)
+
 
 class CinetPayError(Exception):
     """Échec d'appel côté agrégateur. Le message est destiné à l'appelant."""
-
-
-def map_status(raw: str | None) -> str:
-    """Traduit un statut de l'agrégateur vers le vocabulaire stable."""
-    if not raw:
-        return "unknown"
-    return STATUS_MAP.get(raw.upper(), "unknown")
 
 
 class _TokenCache:
@@ -248,19 +231,37 @@ async def initiate_payment(
     provider_status = str(details.get("status") or "")
     status = map_status(provider_status)
 
-    if status == "rejected":
-        raise CinetPayError(_describe_rejection(details))
-
     if status == "unknown":
         raise CinetPayError(
             f"CinetPay returned an unmapped transaction status {provider_status!r} "
-            f"(code {details.get('code')}). Refusing to guess what it means. "
-            "Record it in docs/API-CINETPAY.md and add it to STATUS_MAP."
+            f"(code {details.get('code')}). Refusing to guess what it means: it "
+            "could mean the payment succeeded or that it failed. Record it in "
+            "docs/API-CINETPAY.md and add it to statuses.py before relying on it."
+        )
+
+    if status == "rejected":
+        raise CinetPayError(_describe_rejection(details))
+
+    if status == "duplicate":
+        raise CinetPayError(
+            f"CinetPay already knows a transaction with reference {reference!r} "
+            "and refused to create a second one. This is the idempotency guard "
+            "working: no duplicate payment was created. Use a fresh reference "
+            "for a new payment, or look up the existing one to see its outcome."
+        )
+
+    if status not in _ACCEPTABLE_AT_INITIATION:
+        entry = lookup(provider_status)
+        meaning = entry.meaning if entry else "no documented meaning"
+        provider_message = details.get("message") or ""
+        raise CinetPayError(
+            f"CinetPay did not accept the payment request: {provider_status} "
+            f"(code {details.get('code')}) — {meaning}. {provider_message}".strip()
         )
 
     return {
         "status": status,
-        "is_final": status in FINAL_STATUSES,
+        "is_final": is_final(provider_status),
         "provider_status": provider_status,
         "provider_code": details.get("code"),
         "provider_message": details.get("message"),
