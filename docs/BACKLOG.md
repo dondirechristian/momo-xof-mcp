@@ -4,7 +4,18 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
 
 ## Décidé, plus tard
 
-- Décaissements (`momo_disburse`) — v0.2
+- Décaissements (`momo_disburse`) — v0.2. Endpoints repérés le 2026-09-23 dans
+  la documentation CinetPay, sous « API de transfert » : `POST /v1/transfer`
+  pour l'ordre, `GET /v1/transfer/{transaction_id}` pour son statut, et
+  `GET` sur « Solde » pour le solde marchand. Rien n'est implémenté : ni outil
+  de décaissement, ni outil de solde, conformément à la liste figée des trois
+  outils. Noté ici pour ne pas avoir à rechercher ces pages en v0.2.
+  Une observation utile au passage, tirée de l'exemple de réponse : `amount`
+  et `fee_amount` y sont des **chaînes** (`"100"`, `"2"`) alors que `amount`
+  est un entier dans la requête d'initialisation. Cette asymétrie devra être
+  vérifiée côté collecte avant d'écrire `momo_check_payment_status`.
+  Autre point : la réponse contient `phone_number` en clair. Toute
+  journalisation devra passer par `mask_msisdn`.
 - Second agrégateur en secours — v0.2
 - Webhooks entrants pour statut en temps réel — v0.3
 - Historisation SQLite des transactions — v0.3
