@@ -23,6 +23,7 @@ from typing import Any, Final
 import httpx
 
 from .config import Config
+from .phone import mask_msisdn
 from .statuses import is_final, lookup, map_status
 
 # Marge retranchée à expires_in, pour ne pas présenter un jeton qui expire
@@ -270,3 +271,106 @@ async def initiate_payment(
         "payment_url": body.get("payment_url"),
         "must_be_redirected": details.get("must_be_redirected"),
     }
+
+
+def build_status_result(body: dict[str, Any]) -> dict[str, Any]:
+    """Normalise une réponse de `GET /v1/payment/{reference}`.
+
+    Fonction pure, testable sans réseau. Séparée de l'appel HTTP exprès :
+    c'est ici que se jouent les erreurs d'interprétation, pas dans le
+    transport.
+
+    ATTENTION à l'asymétrie avec l'initialisation : ici le statut est à la
+    RACINE, dans `code` et `status`. Il n'y a pas d'objet `details`. Observé
+    le 2026-09-23 ; un code qui chercherait `details` ne trouverait rien.
+    """
+    provider_status = str(body.get("status") or "")
+    status = map_status(provider_status)
+
+    if status == "unknown":
+        raise CinetPayError(
+            f"CinetPay returned an unmapped status {provider_status!r} "
+            f"(code {body.get('code')}) for this payment. Refusing to guess "
+            "whether it means paid or not paid. Record it in "
+            "docs/API-CINETPAY.md and add it to statuses.py."
+        )
+
+    entry = lookup(provider_status)
+
+    result: dict[str, Any] = {
+        "status": status,
+        "is_final": is_final(provider_status),
+        "provider_status": provider_status,
+        "provider_code": body.get("code"),
+        "provider_meaning": entry.meaning if entry else None,
+        "merchant_reference": body.get("merchant_transaction_id"),
+        "transaction_id": body.get("transaction_id"),
+        "payment_method": body.get("payment_method"),
+    }
+
+    # `user` vaut null tant que le paiement n'a pas abouti — observé aussi sur
+    # une transaction terminée en FAILED. Y accéder sans vérifier lèverait.
+    user = body.get("user")
+    if isinstance(user, dict):
+        # Le numéro arrive en clair. CLAUDE.md interdit de le laisser filer
+        # entier : il est masqué avant de sortir d'ici, pas seulement avant
+        # d'être journalisé.
+        result["customer"] = {
+            "name": user.get("name"),
+            "email": user.get("email"),
+            "phone_masked": mask_msisdn(user.get("phone_number")),
+        }
+    else:
+        result["customer"] = None
+
+    return result
+
+
+async def check_payment_status(config: Config, *, reference: str) -> dict[str, Any]:
+    """Consulte le statut d'un paiement. Lecture seule, ne déplace rien.
+
+    `reference` accepte indifféremment la référence marchand ou
+    l'identifiant de transaction rendu à l'initialisation : la documentation
+    le dit, et l'endpoint prend l'un ou l'autre dans le chemin.
+    """
+    async with httpx.AsyncClient(timeout=config.timeout) as client:
+        token = await _get_token(client, config)
+
+        try:
+            response = await client.get(
+                f"{config.base_url}/v1/payment/{reference}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        except httpx.RequestError as exc:
+            raise CinetPayError(
+                f"Could not reach CinetPay at {config.base_url}: "
+                f"{exc.__class__.__name__}. The payment status is unknown; this "
+                "says nothing about whether the payment succeeded."
+            ) from exc
+
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise CinetPayError(
+            f"CinetPay returned HTTP {response.status_code} with a non-JSON body."
+        ) from exc
+
+    if not isinstance(body, dict):
+        raise CinetPayError(
+            f"CinetPay returned HTTP {response.status_code} with an unexpected body."
+        )
+
+    # Observé : une référence inconnue rend HTTP 422 avec code 404. Les deux
+    # nombres se contredisent en apparence ; c'est `code` qui fait foi.
+    if body.get("code") == 404 or str(body.get("status")).upper() == "NOT_FOUND":
+        raise CinetPayError(
+            f"CinetPay does not know any payment with reference {reference!r}. "
+            "Check the reference: it must be either the merchant reference you "
+            "supplied when initiating, or the transaction_id returned then. "
+            "A payment that was never successfully initiated does not exist here."
+        )
+
+    if response.status_code != 200:
+        raise CinetPayError(_describe_failure(body, response.status_code))
+
+    return build_status_result(body)

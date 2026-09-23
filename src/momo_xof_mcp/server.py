@@ -1,8 +1,11 @@
 """Serveur MCP `momo_xof_mcp` — déclaration de l'instance et des outils.
 
-v0.1 : `momo_list_operators` et `momo_initiate_payment` sont implémentés.
-`momo_check_payment_status` reste à écrire — son endpoint n'a pas encore été
-relevé, et la règle « aucun appel API écrit à l'aveugle » s'applique.
+v0.1 : les trois outils de la liste figée sont implémentés, chacun écrit à
+partir d'appels réels observés et consignés dans docs/API-CINETPAY.md.
+
+Attention à une asymétrie de l'API, source d'erreur : à l'initialisation le
+sort de la transaction est dans `details`, à la consultation il est à la
+racine. Voir `cinetpay.py`.
 
 `momo_initiate_payment` déplace de l'argent réel. Ses garde-fous sont dans
 `config.py` (verrou sandbox, plafond de montant) et dans le corps de l'outil
@@ -24,7 +27,7 @@ from mcp.types import CallToolResult, InputRequiredResult, ToolAnnotations
 from mcp.types import Tool as MCPTool
 from pydantic import Field
 
-from .cinetpay import CinetPayError, initiate_payment
+from .cinetpay import CinetPayError, check_payment_status, initiate_payment
 from .config import ConfigurationError, load_config
 from .operators import SUPPORTED_COUNTRY_CODES, build_catalogue, find_country
 from .phone import InvalidMsisdn, normalize_msisdn
@@ -296,4 +299,72 @@ async def momo_initiate_payment(
         "Send the customer to payment_url to pay. The final outcome is not in "
         "this response and arrives asynchronously."
     )
+    return json.dumps(result, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(
+    name="momo_check_payment_status",
+    description=(
+        "Check what became of a payment you requested earlier. Read-only: it "
+        "never moves money and never changes anything. Accepts either the "
+        "merchant reference you supplied when initiating, or the transaction_id "
+        "returned then. Returns a stable status plus the aggregator's own "
+        "status and code, and says whether the outcome is final. A payment that "
+        "was requested but never completed by the customer ends up FAILED, "
+        "which is final — it does not stay pending forever. The customer's "
+        "phone number is returned masked, never in full."
+    ),
+    annotations=ToolAnnotations(
+        title="Check a mobile money payment status",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
+async def momo_check_payment_status(
+    reference: Annotated[
+        str,
+        Field(
+            description=(
+                "Either the merchant reference you supplied to "
+                "momo_initiate_payment, or the transaction_id it returned. Both "
+                "address the same payment."
+            ),
+            examples=["CMD-2026-0042", "69fe371559c34c6f98971be5c8f4e4df"],
+        ),
+    ],
+) -> str:
+    """Consulte le statut d'un paiement. Ne déplace rien."""
+    try:
+        config = load_config()
+    except ConfigurationError as exc:
+        raise ToolError(str(exc)) from exc
+
+    cleaned = reference.strip()
+    if not cleaned:
+        raise ToolError(
+            "A reference is required: either the merchant reference you used "
+            "when initiating the payment, or the transaction_id returned then."
+        )
+
+    try:
+        result = await check_payment_status(config, reference=cleaned)
+    except CinetPayError as exc:
+        raise ToolError(str(exc)) from exc
+
+    result["environment"] = config.env
+    if not result["is_final"]:
+        result["what_this_means"] = (
+            "This payment is still in flight. Nothing is settled yet: do not "
+            "treat it as paid, and check again later."
+        )
+    elif result["status"] == "succeeded":
+        result["what_this_means"] = "The customer paid. This outcome is final."
+    else:
+        result["what_this_means"] = (
+            "This payment will not complete. The outcome is final, so checking "
+            "again will not change it; start a new payment with a fresh "
+            "reference if the customer still wants to pay."
+        )
     return json.dumps(result, ensure_ascii=False, indent=2)
