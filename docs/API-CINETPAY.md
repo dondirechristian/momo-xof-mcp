@@ -70,9 +70,11 @@ Enseignements, aucun n'était documenté :
 - Les erreurs de haut niveau portent **`description`**, pas `message`. Le
   champ `message` n'existe que dans l'objet `details` d'un paiement. Une
   implémentation qui ne lit que `message` affichera une erreur vide.
-- `status` peut valoir **`NOT_ALLOWED`**, qui ne figure pas dans la liste des
-  statuts de paiement. Les statuts d'erreur d'appel et les statuts de
-  transaction sont donc deux vocabulaires distincts, à ne pas mélanger.
+- `status` peut valoir **`NOT_ALLOWED`**. J'en avais conclu, le 2026-09-22,
+  que les statuts d'erreur d'appel et les statuts de transaction formaient
+  deux vocabulaires distincts. **C'était faux** : la section « Codes de
+  statut », relevée le lendemain, les réunit dans une table unique où
+  `NOT_ALLOWED` (2011) côtoie `INITIATED` (2001). Voir plus bas.
 - `code` `2011` = IP non autorisée.
 - Le `422` sert aussi bien au refus d'autorisation qu'à la validation de
   champs. Le code HTTP seul ne suffit pas à distinguer les cas : il faut lire
