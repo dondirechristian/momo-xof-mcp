@@ -333,6 +333,60 @@ Orange. Après initialisation, se fier à `details.must_be_redirected` : si
    `momo_list_operators` aux codes CinetPay. La liste des codes n'est pas
    encore relevée.
 
+## Consultation du statut d'un paiement — documenté, **pas encore observé**
+
+Relevé le 2026-09-23. Aucun appel réel n'a encore abouti sur cet endpoint :
+la liste blanche IP a bloqué la sonde. Tant que cette section porte cet
+avertissement, **ne pas écrire `momo_check_payment_status`**.
+
+```
+GET {{baseUrl}}/v1/payment/{merchant_transaction_id}
+```
+
+- Le segment d'URL accepte **soit** le `merchant_transaction_id`, soit le
+  `transaction_id` rendu à l'initialisation. Deux clés pour la même
+  ressource.
+- Authentification : `Authorization: Bearer`, comme l'initialisation.
+
+Réponse `200`, cas `SUCCESS` :
+
+```json
+{
+    "code": 100,
+    "status": "SUCCESS",
+    "merchant_transaction_id": "MY-ORDER-ID-08082116",
+    "transaction_id": "3de579e7ec43451a9463d45d21a4cf48",
+    "user": {
+        "name": "Doe John",
+        "email": "john.doe@gmail.com",
+        "phone_number": "+2250707000000"
+    },
+    "payment_method": "OM"
+}
+```
+
+### Asymétrie à ne pas manquer
+
+**Le statut est à la RACINE ici**, dans `code` et `status`. Il n'y a pas
+d'objet `details`, alors que l'initialisation y loge tout. La même API
+répond donc dans deux formes différentes selon l'endpoint, et un code qui
+cherche `details` sur cette réponse ne trouvera rien.
+
+Autres points relevés :
+
+- La documentation annonce trois réponses, **toutes en `HTTP 200`** :
+  `SUCCESS`, `ERROR`, et `INITIATED` avec `user` à `null`. Le code HTTP ne
+  distingue donc rien, ici non plus.
+- `user` est un objet, **`null` tant que le client n'a pas payé**. Y accéder
+  sans vérifier lèvera.
+- `user.phone_number` est en clair. Toute journalisation passe par
+  `mask_msisdn`.
+- `payment_method` vaut `"OM"` dans l'exemple — un code de méthode de
+  paiement, à rapprocher de la page « Méthodes de paiement », pas encore
+  relevée.
+- Les corps exacts des réponses `ERROR` et `INITIATED` ne sont pas connus :
+  seuls leurs intitulés le sont.
+
 ## Vérifications effectuées
 
 - **2026-09-22 — `momo_initiate_payment`, chemin nominal, bout en bout.**
@@ -351,5 +405,7 @@ Orange. Après initialisation, se fier à `details.must_be_redirected` : si
 - [x] Jeton en `Authorization: Bearer` — **confirmé** par la sonde le 2026-09-22
 - [ ] Liste des codes de paiement (`payment_method`)
 - [x] Corps d'une réponse `422` — relevé (code 2011, NOT_ALLOWED)
-- [ ] Endpoint de consultation de statut, pour `momo_check_payment_status`
+- [~] Endpoint de consultation de statut — `GET /v1/payment/{reference}` documenté
+      le 2026-09-23, mais **pas encore observé** : la liste blanche IP a bloqué la
+      sonde. Ne pas écrire l'outil avant un appel réel abouti.
 - [ ] URL de base de production
