@@ -335,11 +335,50 @@ Orange. Après initialisation, se fier à `details.must_be_redirected` : si
    `momo_list_operators` aux codes CinetPay. La liste des codes n'est pas
    encore relevée.
 
-## Consultation du statut d'un paiement — documenté, **pas encore observé**
+## Consultation du statut d'un paiement — **observé le 2026-09-23**
 
-Relevé le 2026-09-23. Aucun appel réel n'a encore abouti sur cet endpoint :
-la liste blanche IP a bloqué la sonde. Tant que cette section porte cet
-avertissement, **ne pas écrire `momo_check_payment_status`**.
+Trois appels réels, sur deux références réellement initiées la veille et une
+référence inexistante.
+
+### Paiement initié puis jamais réglé
+
+```json
+GET /v1/payment/e2e-16c3f19e37   ->   HTTP 200
+{
+    "code": 2010,
+    "status": "FAILED",
+    "merchant_transaction_id": "e2e-16c3f19e37",
+    "transaction_id": "daa3dcf52578408f8093c6c55d792bb8",
+    "user": null
+}
+```
+
+Enseignements, aucun n'était devinable :
+
+- Une demande acceptée que personne n'honore finit en **`FAILED` (2010)**,
+  pas en `EXPIRED` (2003). Le statut `EXPIRED` existe dans la table mais ce
+  n'est pas celui-ci qui sort après abandon du client. `FAILED` est **final**.
+- La réponse est **plate** : ni `details`, ni `payment_method`, ni `amount`.
+  Les champs de l'exemple de la documentation ne sont donc pas tous garantis.
+- `user` vaut `null` hors succès, confirmé sur une transaction terminée.
+
+### Référence inconnue
+
+```json
+GET /v1/payment/inexistant-xyz-123   ->   HTTP 422
+{
+    "code": 404,
+    "status": "NOT_FOUND",
+    "description": "Not found"
+}
+```
+
+- **`HTTP 422` avec `code: 404`.** Les deux nombres se contredisent en
+  apparence ; c'est `code` qui fait foi, comme partout dans cette API.
+- Le champ est `description`, pas `message`, comme pour toutes les erreurs de
+  haut niveau.
+
+### Contrat retenu pour `momo_check_payment_status`
 
 ```
 GET {{baseUrl}}/v1/payment/{merchant_transaction_id}
@@ -397,6 +436,9 @@ Autres points relevés :
   `details.status = "INITIATED"`, `payment_url` reçue, `merchant_transaction_id`
   renvoyé tel qu'envoyé. Montant 100 XOF, `direct_pay: false`, aucun téléphone
   sollicité, aucun débit.
+- **2026-09-23 — `GET /v1/payment/{reference}`, trois cas.** Paiement abandonné
+  (FAILED 2010, réponse plate, `user` null) et référence inconnue (HTTP 422,
+  code 404, NOT_FOUND). Lecture seule, aucun paiement déclenché.
 - **2026-09-22 — les six garde-fous de l'outil.** Plafond dépassé, montant nul,
   référence vide, référence de plus de 30 caractères, numéro invalide,
   argument mal orthographié : tous refusés avant tout appel réseau.
@@ -407,7 +449,7 @@ Autres points relevés :
 - [x] Jeton en `Authorization: Bearer` — **confirmé** par la sonde le 2026-09-22
 - [ ] Liste des codes de paiement (`payment_method`)
 - [x] Corps d'une réponse `422` — relevé (code 2011, NOT_ALLOWED)
-- [~] Endpoint de consultation de statut — `GET /v1/payment/{reference}` documenté
-      le 2026-09-23, mais **pas encore observé** : la liste blanche IP a bloqué la
-      sonde. Ne pas écrire l'outil avant un appel réel abouti.
+- [x] Endpoint de consultation de statut — `GET /v1/payment/{reference}`, **observé**
+      le 2026-09-23 sur trois cas réels. Reste à écrire `momo_check_payment_status`.
+
 - [ ] URL de base de production
