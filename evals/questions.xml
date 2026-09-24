@@ -63,4 +63,62 @@
     <answer>moov_money_tg</answer>
   </qa_pair>
 
+  <!-- ================================================================
+       momo_initiate_payment et momo_check_payment_status.
+
+       Aucune de ces questions ne déclenche de paiement : elles portent
+       sur les garde-fous, les refus et la lecture de statuts déjà
+       terminés. Les réponses sont vérifiées contre le serveur réel.
+       ================================================================ -->
+
+  <qa_pair>
+    <question>momo_initiate_payment returned successfully. Has the customer paid?</question>
+    <answer>No</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Which field of the momo_initiate_payment response must the customer open to complete the payment?</question>
+    <answer>payment_url</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>What is the maximum number of characters allowed in the reference passed to momo_initiate_payment?</question>
+    <answer>30</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Which currency does this server send to the aggregator for every payment?</question>
+    <answer>XOF</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>I sent a customer a payment link days ago and they never paid. What status does momo_check_payment_status report for it?</question>
+    <answer>failed</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Is the status of a payment the customer never completed final, or should I keep polling it?</question>
+    <answer>final</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Can I call momo_check_payment_status with the transaction_id returned at initiation instead of my own merchant reference?</question>
+    <answer>Yes</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Does momo_check_payment_status return the customer's full phone number?</question>
+    <answer>No</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>My network dropped during a payment request, so I retry momo_initiate_payment with the very same reference. Will the customer be charged twice?</question>
+    <answer>No</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>What is the stable status name this server reports for a payment reference that was already used?</question>
+    <answer>duplicate</answer>
+  </qa_pair>
+
 </evaluation>
