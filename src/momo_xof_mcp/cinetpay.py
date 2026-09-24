@@ -245,10 +245,12 @@ async def initiate_payment(
 
     if status == "duplicate":
         raise CinetPayError(
-            f"CinetPay already knows a transaction with reference {reference!r} "
-            "and refused to create a second one. This is the idempotency guard "
-            "working: no duplicate payment was created. Use a fresh reference "
-            "for a new payment, or look up the existing one to see its outcome."
+            f"CinetPay already knows a payment with reference {reference!r} and "
+            "refused to create a second one. No duplicate payment was created, "
+            "and nothing was charged twice. If you are retrying after a timeout "
+            "and need to know what became of the first attempt, call "
+            "momo_check_payment_status with this same reference. If you meant to "
+            "start a genuinely new payment, use a fresh reference."
         )
 
     if status not in _ACCEPTABLE_AT_INITIATION:

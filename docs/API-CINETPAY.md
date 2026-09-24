@@ -428,6 +428,37 @@ Autres points relevés :
 - Les corps exacts des réponses `ERROR` et `INITIATED` ne sont pas connus :
   seuls leurs intitulés le sont.
 
+## Référence rejouée — observé le 2026-09-24
+
+Rejeu d'une `merchant_transaction_id` déjà utilisée sur `POST /v1/payment`.
+
+**Aucun second paiement n'est créé.** L'API refuse. C'est la réponse à la
+question d'idempotence laissée ouverte depuis le 2026-09-22 : un appelant qui
+subit une coupure réseau peut réessayer avec la même référence sans risque de
+double débit.
+
+Mais le statut rendu **ne correspond pas à la table officielle** :
+
+| | Nom | Code |
+|---|---|---|
+| Documenté | `TRANSACTION_EXIST` | 1200 |
+| **Observé** | **`TRANSACTION_ALREADY_EXIST`** | **2010** |
+
+Ni le nom ni le code ne correspondent. Pire, **2010 est par ailleurs le code
+de `FAILED`** : le même code porte deux statuts distincts selon le contexte.
+Rabattre ce doublon sur « échec » ferait croire à un paiement raté alors que
+le premier est peut-être en cours, voire déjà réglé.
+
+Les deux orthographes sont donc présentes dans `statuses.py` : la documentée
+parce qu'elle peut sortir ailleurs, l'observée parce que c'est celle que rend
+l'initialisation. Un test verrouille le fait qu'aucune des deux ne se confond
+avec `failed`.
+
+C'est le garde-fou « statut inconnu → lever plutôt que deviner » qui a révélé
+l'écart : le premier rejeu a fait remonter
+`unmapped transaction status 'TRANSACTION_ALREADY_EXIST'` au lieu de se
+rabattre en silence sur un voisin plausible.
+
 ## Vérifications effectuées
 
 - **2026-09-22 — `momo_initiate_payment`, chemin nominal, bout en bout.**

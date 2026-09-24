@@ -157,10 +157,12 @@ async def momo_list_operators(
         title="Request a mobile money payment (moves real money)",
         readOnlyHint=False,
         destructiveHint=True,
-        # La référence marchand doit être unique côté CinetPay, mais le
-        # comportement d'un rappel avec la même référence n'a pas été observé.
-        # On ne promet donc pas l'idempotence.
-        idempotentHint=False,
+        # Observé le 2026-09-24 : rejouer une référence déjà utilisée ne crée
+        # pas un second paiement, l'API la refuse. Un rappel avec les mêmes
+        # arguments n'a donc aucun effet supplémentaire, ce qui est la
+        # définition de l'annotation. Le signal est utile : un appelant qui
+        # subit une coupure réseau peut réessayer sans risque de double débit.
+        idempotentHint=True,
         openWorldHint=True,
     ),
 )

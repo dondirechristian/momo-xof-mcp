@@ -58,6 +58,17 @@ STATUS_TABLE: Final[dict[str, Status]] = {
     "EXPIRED_TOKEN": Status(1003, "auth_error", False, "Authentication token expired"),
     "INVALID_TOKEN": Status(1002, "auth_error", False, "Authentication token invalid"),
     "TRANSACTION_EXIST": Status(1200, "duplicate", True, "The transaction already exists"),
+    # Observé le 2026-09-24 en rejouant une référence déjà utilisée. L'API a
+    # répondu `TRANSACTION_ALREADY_EXIST` avec le code **2010**, alors que la
+    # table officielle annonce `TRANSACTION_EXIST` avec le code **1200**. Ni
+    # le nom ni le code ne correspondent, et 2010 est par ailleurs documenté
+    # comme `FAILED` : le même code porte donc deux statuts distincts.
+    # Les deux entrées sont conservées : la documentée parce qu'elle peut
+    # sortir ailleurs (transferts ?), l'observée parce que c'est celle que
+    # rend l'initialisation de paiement.
+    "TRANSACTION_ALREADY_EXIST": Status(
+        2010, "duplicate", True, "The transaction already exists (observed spelling)"
+    ),
     "INITIATED": Status(2001, "accepted", False, "Initiated, waiting for the customer"),
     "PENDING": Status(2002, "pending", False, "The customer started the payment"),
     "EXPIRED": Status(2003, "expired", False, "Expired, the customer did not confirm"),

@@ -147,9 +147,10 @@ class TestStatusMapping:
     def test_every_documented_status_is_mapped(self, provider, expected):
         assert map_status(provider) == expected
 
-    def test_the_table_covers_the_whole_documented_list(self):
-        # Dix-neuf lignes dans la section « Codes de statut » de CinetPay.
-        assert len(STATUS_TABLE) == 19
+    def test_the_table_covers_the_documented_list_plus_observations(self):
+        # Dix-neuf lignes documentées, plus TRANSACTION_ALREADY_EXIST, observé
+        # le 2026-09-24 et absent de la table officielle.
+        assert len(STATUS_TABLE) == 20
 
     def test_codes_match_the_documentation(self):
         expected = {
@@ -161,7 +162,8 @@ class TestStatusMapping:
             "INSUFFICIENT_BALANCE": 2005, "USER_NOT_FOUND": 2006,
             "USER_IS_BLOCKED": 2007, "FAILED": 2010, "NOT_ALLOWED": 2011,
         }
-        assert {name: entry.code for name, entry in STATUS_TABLE.items()} == expected
+        observed = {n: e.code for n, e in STATUS_TABLE.items() if n in expected}
+        assert observed == expected
 
     def test_mapping_is_case_insensitive(self):
         assert map_status("initiated") == "accepted"
@@ -184,8 +186,9 @@ class TestStatusFinality:
     def test_the_four_documented_final_statuses(self, provider):
         assert is_final(provider) is True
 
-    def test_exactly_four_statuses_are_final(self):
-        assert sum(1 for entry in STATUS_TABLE.values() if entry.is_final) == 4
+    def test_five_statuses_are_final(self):
+        # Quatre documentés, plus TRANSACTION_ALREADY_EXIST.
+        assert sum(1 for entry in STATUS_TABLE.values() if entry.is_final) == 5
 
     @pytest.mark.parametrize("provider", ["INITIATED", "PENDING"])
     def test_an_in_flight_payment_is_never_final(self, provider):
@@ -214,3 +217,19 @@ class TestStatusFinality:
         # Le piège inverse : un paiement réussi ne doit pas ressortir comme
         # une simple demande acceptée, ni l'inverse.
         assert map_status("SUCCESS") != map_status("INITIATED")
+
+    def test_the_observed_duplicate_spelling_is_mapped(self):
+        # La documentation annonce TRANSACTION_EXIST / 1200. L'API rend en
+        # realite TRANSACTION_ALREADY_EXIST / 2010, et 2010 est par ailleurs
+        # le code de FAILED. Les deux orthographes sont acceptees.
+        assert map_status("TRANSACTION_ALREADY_EXIST") == "duplicate"
+        assert map_status("TRANSACTION_EXIST") == "duplicate"
+
+    def test_the_observed_duplicate_is_final(self):
+        assert is_final("TRANSACTION_ALREADY_EXIST") is True
+
+    def test_a_replayed_reference_is_not_reported_as_a_failure(self):
+        # Le piege : 2010 est le code de FAILED. Rabattre le doublon sur
+        # "failed" ferait croire a un paiement echoue alors que le premier
+        # est peut-etre en cours, voire deja regle.
+        assert map_status("TRANSACTION_ALREADY_EXIST") != map_status("FAILED")
