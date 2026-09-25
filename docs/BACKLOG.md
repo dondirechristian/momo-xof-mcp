@@ -47,11 +47,17 @@ Tout ce qui est hors périmètre v0.1. Claude Code écrit ici au lieu de coder.
   de CLAUDE.md. `mcp.server.fastmcp` subsiste en 2.x comme un module qui lève
   un `ModuleNotFoundError` explicite pointant vers le guide de migration.
 
-- **MCP Inspector en échec.** Timeout de 30 s au handshake, alors que le serveur
-  répond correctement en JSON-RPC direct sur stdin. Cause probable : l'espace
-  dans le chemin `C:\dev\Projet MCP`. À revérifier une fois le projet déplacé
-  dans un dossier `momo-xof-mcp`. Sans gravité : les tests passent en ligne de
-  commande.
+- ~~**MCP Inspector en échec.**~~ **Résolu le 2026-09-25, et le diagnostic
+  initial était faux.** J'avais accusé l'espace dans `C:\dev\Projet MCP`. La
+  vraie cause : **l'Inspector ne transmet pas les arguments** au programme
+  lancé. Avec `python.exe` et `-m momo_xof_mcp`, Python démarre en mode REPL,
+  reçoit le JSON-RPC sur stdin et tente de l'évaluer comme du code Python —
+  d'où `NameError: name 'true' is not defined`, puis le timeout au handshake.
+  La solution est le **script console** déclaré dans `pyproject.toml`, qui ne
+  prend aucun argument :
+  `npx @modelcontextprotocol/inspector --cli ".venv/Scripts/momo-xof-mcp.exe" --method tools/list`
+  Vérifié sur `tools/list` et `tools/call`, exit 0. Le chemin du projet n'y
+  était pour rien, et le déplacer n'aurait rien changé.
 
 - ~~**`extra='forbid'` perdu.**~~ **Réglé le 2026-09-19.** Le modèle
   d'arguments généré par le SDK hérite d'`ArgModelBase`, dont la config

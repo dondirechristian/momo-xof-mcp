@@ -114,6 +114,27 @@ Claude Desktop / Claude Code configuration:
 
 Credentials go in `.env`. See `.env.example`.
 
+Installing the package also provides a `momo-xof-mcp` console script, which
+starts the same stdio server with no arguments.
+
+## Testing with MCP Inspector
+
+Use the **console script**, not `python -m momo_xof_mcp`:
+
+```bash
+npx @modelcontextprotocol/inspector --cli /path/to/venv/bin/momo-xof-mcp \
+  --method tools/list
+```
+
+The Inspector does not forward arguments to the program it launches. Point it
+at `python` with `-m momo_xof_mcp` and Python starts with no script, drops into
+REPL mode, reads the JSON-RPC handshake from stdin and tries to evaluate it as
+Python — you get `NameError: name 'true' is not defined` and then a handshake
+timeout. The console script takes no arguments, so the problem disappears.
+
+MCP clients such as Claude Desktop pass arguments correctly, so the
+`python -m momo_xof_mcp` form above is fine for them.
+
 ## Configuration
 
 | Variable | Required | Notes |
