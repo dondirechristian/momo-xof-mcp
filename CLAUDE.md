@@ -106,13 +106,22 @@ Ce serveur peut déplacer de l'argent réel. En conséquence :
 
 ## Définition du « terminé » pour la v0.1
 
-- [ ] Les trois outils répondent correctement en sandbox
-- [ ] `python -m py_compile` passe sur tout le paquet
-- [ ] Test manuel réussi via MCP Inspector
-- [ ] `evals/questions.xml` contient 10 questions de test réelles
-- [ ] README en anglais, avec GIF de démonstration
-- [ ] `.env.example` à jour, `.env` absent du dépôt
-- [ ] Licence MIT présente
+- [x] Les trois outils répondent correctement en sandbox
+- [x] `python -m py_compile` passe sur tout le paquet
+- [x] Test manuel réussi via MCP Inspector — **via le script console
+      `momo-xof-mcp`**, pas `python -m` : l'Inspector ne transmet pas les
+      arguments. Voir `docs/BACKLOG.md`.
+- [x] `evals/questions.xml` contient 10 questions de test réelles — 20 en
+      fait, toutes vérifiées contre le serveur réel
+- [ ] README en anglais, avec GIF de démonstration — README fait, GIF à
+      enregistrer avec `scripts/demo.py`
+- [x] `.env.example` à jour, `.env` absent du dépôt
+- [x] Licence MIT présente
+
+Réserve connue, hors checklist : le chemin `SUCCESS` n'a **jamais été
+observé**. Toutes les transactions de test ont expiré en `FAILED` faute
+d'être honorées. Le statut est mappé et testé sur charge utile documentée,
+pas sur un paiement réellement abouti.
 
 ## Hors périmètre v0.1
 
