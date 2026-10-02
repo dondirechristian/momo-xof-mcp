@@ -8,7 +8,10 @@ across the major mobile money operators in the eight UEMOA countries.
 > only — the production base URL has not been established yet, and the server
 > refuses any non-sandbox endpoint while `MOMO_ENV=sandbox`.
 
-<!-- TODO: insérer ici le GIF de démonstration avant la première publication -->
+![Three tools, eight countries, against the live CinetPay sandbox](docs/demo.gif)
+
+*Generated from a real run: `python scripts/demo.py --fast > t.txt && python
+scripts/make_gif.py t.txt`. Nothing in it is mocked up.*
 
 ## Why this exists
 
