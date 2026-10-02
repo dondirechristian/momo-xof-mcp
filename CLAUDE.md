@@ -113,8 +113,8 @@ Ce serveur peut déplacer de l'argent réel. En conséquence :
       arguments. Voir `docs/BACKLOG.md`.
 - [x] `evals/questions.xml` contient 10 questions de test réelles — 20 en
       fait, toutes vérifiées contre le serveur réel
-- [ ] README en anglais, avec GIF de démonstration — README fait, GIF à
-      enregistrer avec `scripts/demo.py`
+- [x] README en anglais, avec GIF de démonstration — `docs/demo.gif`, généré
+      depuis une exécution réelle par `scripts/make_gif.py`
 - [x] `.env.example` à jour, `.env` absent du dépôt
 - [x] Licence MIT présente
 
